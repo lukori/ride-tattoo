@@ -39,7 +39,13 @@ Add `?debug` for live numbers, +/- tuning and a log.
 
 ## Stage 1: camera reads the printed line (`scan.html`)
 Print `line.pdf` at 100% (the 50 mm ruler checks the scale). Point the phone so the line runs along the frame;
-the red mark is the reading point. Same two modes; in play mode tap the screen to pause.
+the red mark is the reading point. Tap the screen in play mode to pause.
+- **ניגון מהנקודה** (since scan.js v3): one continuous voice. While the camera moves, the sound follows it like
+  scrub (locks to real time near 1x, backwards plays reversed); when the camera rests, or the line is lost,
+  the ride plays on forwards at real time. Pointing somewhere new (more than `follow` = 0.4 s away) jumps there
+  with a short fade. v1 behaviour (only jumped after the camera moved 1.5 s of line, hard cut) is at tag
+  `checkpoint-stage1-camera-works`.
+- **גרירה**: the camera is the playhead; a resting camera is silence.
 
 How it reads (`js/reader.js`): ink = darker than its neighbourhood → base line and tilt (±12°) from the
 strongest straight row → each tick measured perpendicular to the base line → heights in units of the tick

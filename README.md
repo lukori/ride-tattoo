@@ -37,7 +37,27 @@ Add `?debug` for live numbers, +/- tuning and a log.
 | hold | 0 | grains only: 1 = a still finger keeps sounding that moment |
 | smooth | 0.25 | grains only: finger-speed smoothing |
 
+## Stage 1: camera reads the printed line (`scan.html`)
+Print `line.pdf` at 100% (the 50 mm ruler checks the scale). Point the phone so the line runs along the frame;
+the red mark is the reading point. Same two modes; in play mode tap the screen to pause.
+
+How it reads (`js/reader.js`): ink = darker than its neighbourhood → base line and tilt (±12°) from the
+strongest straight row → each tick measured perpendicular to the base line → heights in units of the tick
+spacing, fitted with a free scale and offset (phone tilt, blur) → slid along the whole sequence in both
+directions; accepted only when far better than any other place. Ticks shorter than the shortest real tick
+(the start dot) are ignored.
+
+Synthetic tests (rendered line, noise, uneven light, tilt, upside down, blur): with ≥6 px per mm in the
+800-px strip, 99–100% read, 0 wrong readings in ~500 tries, median position error 0.015 s.
+Below ~5 px/mm with blur it can't read (phone too far) and says "התקרב לדף". The frame must be tall enough
+that the tallest ticks fit (`band`). Fake-camera end-to-end test: reading follows a moving line within a few
+frames; scrub at 1x → speed 1.00.
+
+`?debug` shows the ink mask, all reader numbers and +/- for every parameter (see `DEFAULTS` in `js/scan.js`).
+
+Not verified yet: real iPhone camera (focus distance, lighting, glare), real hand motion.
+
 ## Next
-1. Camera reads the printed line (stage 1).
+1. Tune stage 1 on the phone with the printed page.
 2. AR progress over the page/skin.
 3. Temporary tattoo print + calibration on skin.

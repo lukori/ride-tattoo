@@ -87,14 +87,87 @@ const Reader = (() => {
     return { ticks, baseThick };
   }
 
+  // Skyline layout: the water line is the long straight edge with the dark city on one side and skin on the
+  // other. `side` is +1 when the city is above it in the image (bars hang down), -1 when the phone is upside down.
+  function findWater(gray, w, h, P) {
+    const step = 4, acc = new Float64Array(h);
+    let best = { score: 0 };
+    // coarse pass every 3 degrees, then the neighbours of the best one
+    const coarse = [];
+    for (let deg = -P.maxTilt; deg <= P.maxTilt; deg += 3) coarse.push(deg);
+    const tryAngle = deg => {
+      const tan = Math.tan(deg * Math.PI / 180);
+      acc.fill(0);
+      for (let x = 0; x < w; x += step) {
+        const off = (x - w / 2) * tan;
+        for (let yo = 3; yo < h - 3; yo++) {
+          const y = Math.round(yo + off);
+          if (y < 2 || y >= h - 2) continue;
+          acc[yo] += gray[(y + 2) * w + x] - gray[(y - 2) * w + x];
+        }
+      }
+      for (let yo = 3; yo < h - 3; yo++) {
+        const s = Math.abs(acc[yo]);
+        if (s > best.score) best = { score: s, y0: yo, tan, deg, side: acc[yo] > 0 ? 1 : -1 };
+      }
+    };
+    coarse.forEach(tryAngle);
+    const c = best.deg;
+    for (const d of [c - 2, c - 1, c + 1, c + 2]) if (Math.abs(d) <= P.maxTilt) tryAngle(d);
+    best.contrast = best.score / Math.ceil(w / step);   // average brightness step across the edge
+    return best;
+  }
+
+  function measureBars(m, w, h, base) {
+    const { ink } = m;
+    const cos = 1 / Math.sqrt(1 + base.tan * base.tan), sin = base.tan * cos;
+    const nx = -sin * base.side, ny = cos * base.side;      // from the water line into the reflection
+    const run = new Int16Array(w), tipY = new Int16Array(w);
+    for (let x = 0; x < w; x++) {
+      const yb = base.y0 + (x - w / 2) * base.tan;
+      const at = k => {
+        const px = Math.round(x + k * nx), py = Math.round(yb + k * ny);
+        return px >= 0 && px < w && py >= 0 && py < h && ink[py * w + px];
+      };
+      let k0 = -1;
+      for (let k = 2; k <= 5 && k0 < 0; k++) if (at(k)) k0 = k;    // a bar starts right at the water line
+      if (k0 < 0) continue;
+      let k = k0;
+      for (;;) { if (at(k + 1)) k++; else if (at(k + 2)) k += 2; else break; }
+      run[x] = k; tipY[x] = Math.round(yb + k * ny);
+    }
+    const ticks = [];
+    let g = null;
+    for (let x = 0; x <= w; x++) {
+      if (x < w && run[x] >= 4) {
+        if (!g) g = { x0: x, sw: 0, swx: 0, h: 0, tip: 0 };
+        g.sw += run[x]; g.swx += run[x] * x;
+        if (run[x] > g.h) { g.h = run[x]; g.tip = tipY[x]; }
+        g.x1 = x;
+      } else if (g) {
+        if (g.x0 > 0 && g.x1 < w - 1) ticks.push({ x: g.swx / g.sw, h: g.h, top: Math.min(g.tip, Math.round(base.y0)), bot: Math.max(g.tip, Math.round(base.y0)) });
+        g = null;
+      }
+    }
+    return { ticks, baseThick: 0 };
+  }
+
   function detect(gray, w, h, P, L) {
     const out = { found: false, ticks: [] };
     const m = inkMask(gray, w, h, P);
     out.mask = m.ink;
-    const base = findBase(m, w, h, P);
-    out.base = base;
-    if (base.score < w * 0.35) { out.reason = 'no line'; return out; }
-    let { ticks, baseThick } = measureTicks(m, w, h, base);
+    let ticks, baseThick, base;
+    if (L.layout === 'reflection') {
+      base = findWater(gray, w, h, P);
+      out.base = base;
+      if (base.contrast < P.edgeMin) { out.reason = 'no line'; return out; }
+      ({ ticks, baseThick } = measureBars(m, w, h, base));
+    } else {
+      base = findBase(m, w, h, P);
+      out.base = base;
+      if (base.score < w * 0.35) { out.reason = 'no line'; return out; }
+      ({ ticks, baseThick } = measureTicks(m, w, h, base));
+    }
     out.baseThick = baseThick;
     if (ticks.length < 3) { out.ticks = ticks; out.reason = 'few ticks'; return out; }
 

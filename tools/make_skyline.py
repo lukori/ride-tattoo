@@ -6,7 +6,7 @@
    windows/arches into real holes, crops to the drawing -> art/sky-clean.svg
 2. Measures the skyline height above the water line per tick (headless Chrome) -> art/sky-profile.json
 3. Writes two print-ready variants in real millimetres:
-   art/skyline-a.svg  reflection bars in 4 fixed lengths (what the reader reads today)
+   art/skyline-a.svg  reflection bars in 4 fixed lengths; the reader reads this (sky-105.json, layout "reflection")
    art/skyline-b.svg  reflection bars that also follow the buildings above (looks more like a reflection;
                       the reader would need to know the expected length per position - not built yet)
 """
@@ -118,6 +118,9 @@ def main():
     len_b = [max(MIN_B_MM, p * k * FRAC_B[l]) for p, l in zip(info["prof"], line["levels"])]
     sky_h = compose(black, holes, info, line, len_a, "art/skyline-a.svg")
     compose(black, holes, info, line, len_b, "art/skyline-b.svg")
+    # what the scanner needs to read variant A: same code, one-sided bars hanging from the water line
+    sky = dict(line, layout="reflection", heightsMm=LEN_A_MM, tickMm=BAR_MM, art="art/skyline-a.svg")
+    Path(name.replace("line", "sky") + ".json").write_text(json.dumps(sky))
     print(f"skyline {line['lengthMm']} x {sky_h:.1f} mm, {n} reflection bars; "
           f"B lengths {min(len_b):.1f}-{max(len_b):.1f} mm")
 

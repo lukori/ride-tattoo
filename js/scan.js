@@ -10,6 +10,7 @@ const DEFAULTS = {
   k: 0.12,         // ink: how much darker than its surroundings
   win: 25,         // ink: neighbourhood size, px
   maxTilt: 12,     // degrees of line tilt searched
+  edgeMin: 12,     // skyline: brightness step needed to call an edge the water line
   minTicks: 6,     // ticks needed for a reading
   maxErr: 1,       // misread tick heights always allowed
   errFrac: 0.1,    // ...or this fraction of the ticks seen
@@ -28,7 +29,7 @@ const DEFAULTS = {
 };
 const LIMITS = {
   band: [0.1, 0.6, 0.02], width: [0.5, 1, 0.02], proc: [400, 1600, 100],
-  k: [0.02, 0.4, 0.02], win: [9, 81, 4], maxTilt: [0, 30, 2], minTicks: [4, 15, 1],
+  k: [0.02, 0.4, 0.02], win: [9, 81, 4], maxTilt: [0, 30, 2], edgeMin: [2, 60, 2], minTicks: [4, 15, 1],
   maxErr: [0, 4, 1], errFrac: [0, 0.3, 0.02], jump: [0.2, 3, 0.1], confirm: [1, 6, 1],
   lostMs: [100, 2000, 50], moveMin: [0.1, 3, 0.1], settle: [0.05, 1, 0.05], settleMs: [0, 1000, 50],
   snap: [0, 0.6, 0.05], tau: [0.05, 1, 0.05], drift: [0.05, 1, 0.05], pull: [0, 2, 0.1],

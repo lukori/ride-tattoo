@@ -77,8 +77,15 @@ Synthetic test on a skin-coloured background, normal and mirrored, 8–24 px/mm:
 background, windows become holes, crops) and writes two variants, shown on `mockup.html`:
 - `art/skyline-a.svg`: the coded reflection in 4 fixed lengths (2/4/6/8 mm) hanging from the water line.
 - `art/skyline-b.svg`: reflection lengths also follow the buildings above (30–90% of their height).
-The reader does not read these yet: it needs to find the water line and read one-sided bars (and, for B,
-know the expected length per position).
+**Variant A is the chosen design and is readable**: `scan.html?line=sky-105` (print `sky-105.pdf`, or
+`sky-105-mirror.pdf` for tattoo paper). `sky-105.json` = the line-105 code with `layout: "reflection"` and bar
+lengths 2/4/6/8 mm. For this layout the reader finds the water line as the strongest straight dark-to-light edge
+(any tilt within ±12°, either way up; `edgeMin` = minimum brightness step) and measures bars only on the light
+side, from the edge outwards. Everything after that (spacing, height fit, matching, position) is shared.
+Synthetic test (skyline rendered on skin colour, noise, blur, glare spot, normal / upside down / mirrored,
+6–22 px/mm): 288/288 read, 0 wrong; with the water line off-centre and 11° tilt also 0 mismatched bars
+(the reading point is where the vertical red mark crosses the water line). Fake camera: play mode ignores
+hand shake, scrub at 1x measures 1.02.
 
 ## Next
 1. Tune stage 1 on the phone with the printed page.

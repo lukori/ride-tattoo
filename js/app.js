@@ -3,7 +3,13 @@
 // and "scrub" (the finger is the playhead; speed and direction of the finger drive the sound).
 
 const DEFAULTS = {
-  grain: 0.09,     // scrub: length of each sound grain, seconds
+  engine: 1,       // scrub: 1 = tape (one continuous voice, sounds like real time at finger speed ~1x), 0 = grains
+  snap: 0.25,      // tape: finger speed within 1 ± snap plays at exactly real time
+  tau: 0.12,       // tape: finger speed smoothing time, seconds
+  drift: 0.2,      // tape: how far (s) the sound may lag/lead the finger before it is pulled back
+  pull: 0.6,       // tape: how hard it is pulled back
+  stopAt: 0.12,    // tape: finger slower than this (x real time) = silence
+  grain: 0.09,     // scrub: length of each sound grain, seconds    // scrub: length of each sound grain, seconds
   every: 0.035,    // scrub: time between grains, seconds
   pitch: 1,        // scrub: 1 = sound speeds up / slows down with the finger (tape), 0 = constant pitch
   minRate: 0.35,   // scrub: slowest playback rate when pitch=1
@@ -12,6 +18,8 @@ const DEFAULTS = {
   smooth: 0.25,    // scrub: finger speed smoothing (0 = raw, closer to 1 = smoother)
 };
 const LIMITS = {
+  engine: [0, 1, 1], snap: [0, 0.6, 0.05], tau: [0.02, 0.5, 0.02], drift: [0.05, 1, 0.05],
+  pull: [0, 2, 0.1], stopAt: [0.02, 0.5, 0.02],
   grain: [0.02, 0.4, 0.01], every: [0.01, 0.2, 0.005], pitch: [0, 1, 1],
   minRate: [0.1, 1, 0.05], maxRate: [1, 6, 0.25], hold: [0, 1, 1], smooth: [0, 0.95, 0.05],
 };
@@ -179,6 +187,61 @@ function scrubTick(now) {
   lastGrainPos = finger.pos;
 }
 
+// ---------- scrub mode, tape engine ----------
+// One continuous voice. Its speed follows the finger; near 1x it locks to real time.
+// Moving backwards switches to the reversed recording.
+
+let voice = null;         // { src, gain, dir, pos, rate, t }
+
+function startVoice(dir, pos) {
+  stopVoice();
+  const t = ctx.currentTime;
+  const src = ctx.createBufferSource();
+  src.buffer = dir > 0 ? buffer : reversed;
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0, t);
+  gain.gain.linearRampToValueAtTime(1, t + 0.02);
+  src.connect(gain).connect(ctx.destination);
+  src.start(t, Math.max(0, dir > 0 ? pos : buffer.duration - pos));
+  voice = { src, gain, dir, pos, rate: 1, t };
+}
+
+function stopVoice() {
+  if (!voice) return;
+  const t = ctx.currentTime, v = voice;
+  voice = null;
+  v.gain.gain.cancelScheduledValues(t);
+  v.gain.gain.setValueAtTime(v.gain.gain.value, t);
+  v.gain.gain.linearRampToValueAtTime(0, t + 0.04);
+  v.src.stop(t + 0.06);
+}
+
+function tapeTick(now) {
+  if (!finger) return;
+  const dt = (now - finger.lastT) / 1000;
+  if (dt <= 0) return;
+  const raw = (finger.pos - finger.lastPos) / dt;
+  finger.vel += (1 - Math.exp(-dt / P.tau)) * (raw - finger.vel);
+  finger.lastPos = finger.pos; finger.lastT = now;
+
+  const t = ctx.currentTime;
+  if (voice) { voice.pos += voice.dir * voice.rate * (t - voice.t); voice.t = t; }
+  const speed = Math.abs(finger.vel), dir = finger.vel < 0 ? -1 : 1;
+
+  if (!voice) { if (speed > P.stopAt * 2) startVoice(dir, finger.pos); else return; }
+  else if (speed < P.stopAt) { stopVoice(); return; }
+  else if (dir !== voice.dir && speed > P.stopAt * 2) startVoice(dir, finger.pos);
+  if (Math.abs(finger.pos - voice.pos) > 1) startVoice(dir, finger.pos);   // lost: jump to the finger
+
+  let rate = Math.abs(speed - 1) < P.snap ? 1 : speed;
+  const err = (finger.pos - voice.pos) * voice.dir;                        // > 0: sound is behind the finger
+  if (Math.abs(err) > P.drift) rate *= 1 + P.pull * (err - Math.sign(err) * P.drift);
+  rate = Math.min(P.maxRate, Math.max(P.minRate, rate));
+  voice.src.playbackRate.setTargetAtTime(rate, t, 0.03);
+  voice.rate = rate;
+  if (voice.pos < 0 || voice.pos > buffer.duration) stopVoice();
+}
+
 // ---------- input ----------
 
 let pointerId = null;
@@ -201,7 +264,7 @@ stage.addEventListener('pointermove', e => {
 const up = e => {
   if (e.pointerId !== pointerId) return;
   pointerId = null;
-  if (mode === 'scrub') finger = null;
+  if (mode === 'scrub') { finger = null; if (voice) stopVoice(); }
 };
 stage.addEventListener('pointerup', up);
 stage.addEventListener('pointercancel', up);
@@ -209,6 +272,7 @@ stage.addEventListener('pointercancel', up);
 function setMode(m) {
   mode = m;
   stopPlay(); finger = null; head = null;
+  if (voice) stopVoice();
   btnPlay.classList.toggle('on', m === 'play');
   btnScrub.classList.toggle('on', m === 'scrub');
   document.getElementById('hint').textContent = m === 'play'
@@ -226,7 +290,7 @@ window.addEventListener('resize', () => line && resize());
 let lastSec = performance.now();
 function frame(now) {
   if (mode === 'play' && source) head = Math.min(total, startPos + (ctx.currentTime - startedAt));
-  if (mode === 'scrub') scrubTick(now);
+  if (mode === 'scrub') (P.engine ? tapeTick : scrubTick)(now);
   if (now - lastSec > 1000) { grainsRate = grainsThisSec; grainsThisSec = 0; lastSec = now; }
   draw();
   if (DEBUG) debugTick(now);

@@ -64,6 +64,22 @@ frames; scrub at 1x → speed 1.00.
 
 Not verified yet: real iPhone camera (focus distance, lighting, glare), real hand motion.
 
+## 10.5 cm line (forearm)
+Same recording, same tick spacing (1.48 mm), 71 ticks of 0.36 s each:
+`python3 tools/make_line.py audio/ride.m4a --length 105 --pitch 1.47 --out line-105`
+Print `line-105.pdf`, or `line-105-mirror.pdf` for temporary-tattoo paper (most need a mirrored print).
+`print.html?line=line-105&len=10.5[&mirror]` is the page both PDFs are made from.
+Scan with `scan.html?line=line-105`. A mirrored line reads correctly too (it is the same as reading backwards).
+Synthetic test on a skin-coloured background, normal and mirrored, 8–24 px/mm: 144/144 read, 0 wrong.
+
+## Jaffa skyline (design study)
+`art/sky-source.svg` is the traced skyline. `python3 tools/make_skyline.py line-105` cleans it (drops the white
+background, windows become holes, crops) and writes two variants, shown on `mockup.html`:
+- `art/skyline-a.svg`: the coded reflection in 4 fixed lengths (2/4/6/8 mm) hanging from the water line.
+- `art/skyline-b.svg`: reflection lengths also follow the buildings above (30–90% of their height).
+The reader does not read these yet: it needs to find the water line and read one-sided bars (and, for B,
+know the expected length per position).
+
 ## Next
 1. Tune stage 1 on the phone with the printed page.
 2. AR progress over the page/skin.

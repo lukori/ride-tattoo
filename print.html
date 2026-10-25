@@ -3,12 +3,14 @@
 <head>
 <meta charset="utf-8">
 <title>הדרך · להדפסה</title>
+<!-- ?line=line-105&len=10.5&mirror  (defaults: line.svg, 15 cm, not mirrored) -->
 <style>
   @page { size: A4; margin: 0; }
   html, body { margin: 0; background: #fff; color: #000; font-family: "Helvetica Neue", Arial, sans-serif; }
   .page { width: 210mm; height: 297mm; position: relative; }
   .line { position: absolute; top: 60mm; left: 50%; transform: translateX(-50%); }
-  .line img { display: block; width: 159mm; height: 14.5mm; }
+  .line img { display: block; }          /* the SVG carries its real size in mm */
+  .line.mirror img { transform: scaleX(-1); }
   .note { position: absolute; top: 25mm; left: 20mm; right: 20mm; font-size: 11pt; line-height: 1.5; }
   .ruler { position: absolute; top: 95mm; left: 50%; transform: translateX(-50%); width: 50mm; direction: ltr; text-align: center; font-size: 9pt; }
   .ruler .bar { height: 3mm; border: 0.25mm solid #000; border-top: 0; }
@@ -17,11 +19,20 @@
 <body>
 <div class="page">
   <div class="note">
-    <b>הדרך</b>: הקו בגודל אמיתי, 15 ס״מ.<br>
+    <b>הדרך</b>: הקו בגודל אמיתי, <span id="len">15</span> ס״מ.<span id="mirror-note"></span><br>
     הדפס ב-100% (Actual size), בלי "התאמה לעמוד". הסרגל למטה צריך להימדד 5 ס״מ בדיוק.
   </div>
-  <div class="line"><img src="line.svg" alt=""></div>
+  <div class="line" id="line"><img id="img" src="line.svg" alt=""></div>
   <div class="ruler"><div class="bar"></div>50 mm</div>
 </div>
+<script>
+  const q = new URLSearchParams(location.search);
+  if (q.get('line')) document.getElementById('img').src = q.get('line') + '.svg';
+  if (q.get('len')) document.getElementById('len').textContent = q.get('len');
+  if (q.has('mirror')) {
+    document.getElementById('line').classList.add('mirror');
+    document.getElementById('mirror-note').textContent = ' הפוך במראה, לנייר קעקוע זמני.';
+  }
+</script>
 </body>
 </html>

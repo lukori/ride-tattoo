@@ -7,7 +7,11 @@ where on the ride it is.
 
 Usage: python3 tools/make_line.py audio/ride.m4a
 Writes line.json (for the app) and line.svg (vector, real millimetres, for print).
+
+Shorter line, same tick spacing, whole recording (each tick then covers more time):
+    python3 tools/make_line.py audio/ride.m4a --length 105 --pitch 1.47 --out line-105
 """
+import argparse
 import json
 import subprocess
 import sys
@@ -32,9 +36,9 @@ def load(path):
 
 
 def loudness_targets(samples):
-    hop = int(TICK_SECONDS * SR)
-    n = len(samples) // hop
-    rms = np.array([np.sqrt(np.mean(samples[i * hop:(i + 1) * hop] ** 2)) for i in range(n)])
+    hop = TICK_SECONDS * SR
+    n = int(len(samples) / hop + 1e-6)
+    rms = np.array([np.sqrt(np.mean(samples[int(i * hop):int((i + 1) * hop)] ** 2)) for i in range(n)])
     db = 20 * np.log10(rms + 1e-6)
     lo, hi = np.percentile(db, 5), np.percentile(db, 95)
     norm = np.clip((db - lo) / max(hi - lo, 1e-6), 0, 1)
@@ -98,8 +102,17 @@ def write_svg(levels, path):
 
 
 def main():
-    src = sys.argv[1] if len(sys.argv) > 1 else "audio/ride.m4a"
+    global TICK_SECONDS, LENGTH_MM
+    ap = argparse.ArgumentParser()
+    ap.add_argument("src", nargs="?", default="audio/ride.m4a")
+    ap.add_argument("--length", type=float, default=LENGTH_MM, help="printed length, mm")
+    ap.add_argument("--pitch", type=float, help="tick spacing, mm (sets the time per tick); default 0.25 s per tick")
+    ap.add_argument("--out", default="line", help="output name (writes NAME.json and NAME.svg)")
+    args = ap.parse_args()
+    src, LENGTH_MM = args.src, args.length
     samples = load(src)
+    if args.pitch:
+        TICK_SECONDS = (len(samples) / SR) / round(LENGTH_MM / args.pitch)
     targets = loudness_targets(samples)
     levels = pick_levels(targets)
     changed = sum(1 for l, t in zip(levels, targets) if l != round(t))
@@ -115,9 +128,9 @@ def main():
         "heightsMm": HEIGHTS_MM,
         "tickMm": TICK_MM,
     }
-    with open("line.json", "w") as f:
+    with open(args.out + ".json", "w") as f:
         json.dump(data, f)
-    write_svg(levels, "line.svg")
+    write_svg(levels, args.out + ".svg")
     print(f"{len(levels)} ticks, {data['duration']:.2f}s, pitch {LENGTH_MM / len(levels):.2f}mm, "
           f"{changed} ticks nudged away from pure loudness")
 

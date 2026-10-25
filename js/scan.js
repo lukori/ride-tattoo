@@ -39,6 +39,7 @@ const url = new URLSearchParams(location.search);
 const P = { ...DEFAULTS };
 for (const k in P) if (url.has(k)) P[k] = clampParam(k, parseFloat(url.get(k)));
 const DEBUG = url.has('debug');
+const LINE = /^[\w-]+$/.test(url.get('line') || '') ? url.get('line') : 'line';   // ?line=line-105 for the 10.5 cm print
 
 const video = document.getElementById('cam');
 const overlay = document.getElementById('overlay');
@@ -74,7 +75,7 @@ document.getElementById('go').onclick = async () => {
     const track = stream.getVideoTracks()[0];
     try { await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch (e) {}
     err.textContent = 'טוען…';
-    line = await (await fetch('line.json?v=1')).json();
+    line = await (await fetch(LINE + '.json?v=1')).json();
     total = line.levels.length * line.tickSeconds;
     const bytes = await (await fetch('audio/ride.m4a?v=1')).arrayBuffer();
     buffer = await new Promise((ok, no) => ctx.decodeAudioData(bytes, ok, no));
@@ -351,6 +352,7 @@ function syncUrl() {
   const q = new URLSearchParams();
   if (DEBUG) q.set('debug', '');
   if (mode !== 'play') q.set('mode', mode);
+  if (LINE !== 'line') q.set('line', LINE);
   for (const k in P) if (P[k] !== DEFAULTS[k]) q.set(k, +(+P[k]).toFixed(3));
   history.replaceState(null, '', '?' + q.toString().replace('debug=', 'debug'));
 }

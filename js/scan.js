@@ -1,6 +1,7 @@
 // Stage 1: the camera reads the printed line; the moment under the red mark plays.
 // Two modes, one continuous voice:
-// "play": the ride always plays at real time; only a deliberate move (more than `moveMin`) jumps it there.
+// "play": the ride always plays at real time; only a deliberate move (more than `moveMm`) jumps it there.
+// Distances are in mm along the printed line, so the same settings fit a 30 s or a 30 min recording.
 // "scrub": the camera is the playhead; a resting camera is silence. Near 1x both lock to real time.
 // "glide" (forgiving scrub): sounds only while moving; any comfortable forward movement plays at real time,
 //   catching up with tiny speed changes or soft jumps; very fast forward and backwards behave like scrub.
@@ -16,17 +17,18 @@ const DEFAULTS = {
   minTicks: 6,     // ticks needed for a reading
   maxErr: 1,       // misread tick heights always allowed
   errFrac: 0.1,    // ...or this fraction of the ticks seen
-  jump: 0.6,       // a reading this far (s) from the last one must repeat `confirm` times
+  jumpMm: 2.5,     // a reading this far (mm) from the last one must repeat `confirm` times
   confirm: 2,
   lostMs: 400,     // no reading for this long = line lost
-  moveMin: 0.6,    // play: the camera must move this far (s of line, 0.6 s ≈ 3.5 mm) to count as a move; less = hand shake
-  settle: 0.15,    // play: after a move, the camera counts as settled when it stays within this (s of line)...
+  moveMm: 2.5,     // play: the camera must move this far (mm) to count as a move; less = hand shake
+  settleMm: 0.6,   // play: after a move, the camera counts as settled when it stays within this (mm)...
   settleMs: 150,   // ...for this long; then the sound jumps there
   snap: 0.25,      // scrub: camera speed within 1 ± snap plays at exactly real time
   tau: 0.25,       // scrub: camera speed smoothing, seconds
-  drift: 0.3,      // scrub: lag allowed before pulling the sound to the camera
-  pull: 0.6,
-  stopAt: 0.2,     // scrub: slower than this = silence
+  driftMm: 1.2,    // scrub: lag (mm) allowed before pulling the sound to the camera
+  pull: 0.15,      // scrub: how hard, per mm beyond driftMm
+  farMm: 4,        // scrub: sound this far (mm) from the camera is restarted at the camera
+  stopMm: 0.8,     // scrub: camera slower than this (mm/s) = silence
   minRate: 0.35, maxRate: 3,
   // glide mode, all distances/speeds in mm along the printed line (so they fit any recording length)
   gStart: 2.5,     // from rest, the hand must travel this far (mm) one way before the sound starts
@@ -36,19 +38,20 @@ const DEFAULTS = {
   gNudge: 1.5,     // sound this far (mm) from the camera: start nudging its speed (barely audible)
   gLead: 4,        // camera this far (mm) ahead of the sound: soft jump to the camera
   gLag: 8,         // camera this far (mm) behind the sound: soft jump back
-  gFollow: 0.3,    // how much the sound's speed follows the hand's: 0 = always real time, 1 = like scrub
+  gRef: 4,         // glide: hand speed (mm/s) that plays at exactly real time
+  gFollow: 0.3,    // how much the sound's speed follows the hand's: 0 = always real time, 1 = fully
   gUp: 1.12,       // fastest nudge
   gDown: 0.92,     // slowest nudge
 };
 const LIMITS = {
   band: [0.1, 0.6, 0.02], width: [0.5, 1, 0.02], proc: [400, 1600, 100],
   k: [0.02, 0.4, 0.02], win: [9, 81, 4], maxTilt: [0, 30, 2], edgeMin: [2, 60, 2], minTicks: [4, 15, 1],
-  maxErr: [0, 4, 1], errFrac: [0, 0.3, 0.02], jump: [0.2, 3, 0.1], confirm: [1, 6, 1],
-  lostMs: [100, 2000, 50], moveMin: [0.1, 3, 0.1], settle: [0.05, 1, 0.05], settleMs: [0, 1000, 50],
-  snap: [0, 0.6, 0.05], tau: [0.05, 1, 0.05], drift: [0.05, 1, 0.05], pull: [0, 2, 0.1],
-  stopAt: [0.02, 0.6, 0.02], minRate: [0.1, 1, 0.05], maxRate: [1, 6, 0.25],
+  maxErr: [0, 4, 1], errFrac: [0, 0.3, 0.02], jumpMm: [0.5, 15, 0.5], confirm: [1, 6, 1],
+  lostMs: [100, 2000, 50], moveMm: [0.5, 15, 0.5], settleMm: [0.1, 5, 0.1], settleMs: [0, 1000, 50],
+  snap: [0, 0.6, 0.05], tau: [0.05, 1, 0.05], driftMm: [0.2, 6, 0.2], pull: [0, 1, 0.05], farMm: [1, 20, 0.5],
+  stopMm: [0.1, 5, 0.1], minRate: [0.1, 1, 0.05], maxRate: [1, 6, 0.25],
   gStart: [0.5, 15, 0.5], gStill: [0.2, 10, 0.2], gHold: [0, 2000, 50], gFast: [3, 60, 1], gNudge: [0.25, 10, 0.25],
-  gLead: [1, 30, 0.5], gLag: [1, 40, 1], gFollow: [0, 1, 0.05], gUp: [1, 1.5, 0.02], gDown: [0.6, 1, 0.02],
+  gLead: [1, 30, 0.5], gLag: [1, 40, 1], gRef: [0.5, 20, 0.5], gFollow: [0, 1, 0.05], gUp: [1, 1.5, 0.02], gDown: [0.6, 1, 0.02],
 };
 
 const url = new URLSearchParams(location.search);
@@ -67,6 +70,7 @@ const proc = document.createElement('canvas');
 const pctx = proc.getContext('2d', { willReadFrequently: true });
 
 let line, buffer, reversed, ctx, total = 0;
+let spm = 1;              // seconds of ride per mm of printed line
 let mode = ['scrub', 'glide'].includes(url.get('mode')) ? url.get('mode') : 'play';
 let last = null, detMs = 0, geo = null, gray = null;
 const cam = { pos: null, seen: -1e9, pending: null };   // accepted camera position on the ride
@@ -94,7 +98,8 @@ document.getElementById('go').onclick = async () => {
     err.textContent = 'טוען…';
     line = await (await fetch(LINE + '.json?v=1')).json();
     total = line.levels.length * line.tickSeconds;
-    const bytes = await (await fetch('audio/ride.m4a?v=1')).arrayBuffer();
+    spm = total / line.lengthMm;
+    const bytes = await (await fetch(line.audio + '?v=1')).arrayBuffer();
     buffer = await new Promise((ok, no) => ctx.decodeAudioData(bytes, ok, no));
     reversed = reverseBuffer(buffer);
     document.getElementById('start').hidden = true;
@@ -149,8 +154,8 @@ function process(now) {
 }
 
 function accept(t, now) {
-  if (isLocked(now) && Math.abs(t - cam.pos) < P.jump) { cam.pos = t; cam.seen = now; cam.pending = null; return true; }
-  if (cam.pending && Math.abs(t - cam.pending.t) < P.jump) {
+  if (isLocked(now) && Math.abs(t - cam.pos) < P.jumpMm * spm) { cam.pos = t; cam.seen = now; cam.pending = null; return true; }
+  if (cam.pending && Math.abs(t - cam.pending.t) < P.jumpMm * spm) {
     cam.pending.t = t;
     if (++cam.pending.n >= P.confirm) { cam.pos = t; cam.seen = now; cam.pending = null; cam.jumped = true; return true; }
   } else cam.pending = { t, n: 1 };
@@ -224,34 +229,39 @@ function tapeTick(now) {
   if (voice) { voice.pos += voice.dir * voice.rate * (t - voice.t); voice.t = t; }
   const speed = Math.abs(rd.vel), dir = rd.vel < 0 ? -1 : 1;
 
-  if (!voice) { if (speed > P.stopAt * 2) startVoice(dir, rd.pos); else return; }
-  else if (speed < P.stopAt) { stopVoice(); return; }
-  else if (dir !== voice.dir && speed > P.stopAt * 2) startVoice(dir, rd.pos);
-  if (Math.abs(rd.pos - voice.pos) > 1) startVoice(dir, rd.pos);
+  const handMm = speed / spm;                           // camera speed along the line, mm/s
+  if (!voice) { if (handMm > P.stopMm * 2) startVoice(dir, rd.pos); else return; }
+  else if (handMm < P.stopMm) { stopVoice(); return; }
+  else if (dir !== voice.dir && handMm > P.stopMm * 2) startVoice(dir, rd.pos);
+  if (Math.abs(rd.pos - voice.pos) > P.farMm * spm) startVoice(dir, rd.pos);
 
   let rate = Math.abs(speed - 1) < P.snap ? 1 : speed;
-  const err = (rd.pos - voice.pos) * voice.dir;
-  if (Math.abs(err) > P.drift) rate *= 1 + P.pull * (err - Math.sign(err) * P.drift);
-  rate = Math.min(P.maxRate, Math.max(P.minRate, rate));
+  rate = Math.min(P.maxRate, Math.max(P.minRate, rate * follow(rd.pos - voice.pos, voice.dir)));
   voice.src.playbackRate.setTargetAtTime(rate, t, 0.03);
   voice.rate = rate;
   if (voice.pos < 0 || voice.pos > buffer.duration) stopVoice();
 }
 
-// Play mode: always real time, forwards. Small camera motions are ignored. A move of more than `moveMin`
+// Speed factor that pulls the sound back to the camera once it has drifted more than driftMm.
+function follow(diffS, dir) {
+  const errMm = diffS * dir / spm;
+  return Math.abs(errMm) > P.driftMm ? 1 + P.pull * (errMm - Math.sign(errMm) * P.driftMm) : 1;
+}
+
+// Play mode: always real time, forwards. Small camera motions are ignored. A move of more than `moveMm`
 // from where the camera rested jumps the sound there once the camera settles (unless the sound is already there).
 function playTick(now) {
   const sp = voicePos();
   const land = () => {
     rd.anchor = rd.pos; rd.moving = false;
-    if (!voice || Math.abs(rd.pos - sp) > P.moveMin) startVoice(1, rd.pos);
+    if (!voice || Math.abs(rd.pos - sp) > P.moveMm * spm) startVoice(1, rd.pos);
   };
   if (rd.anchor == null) return land();
   if (!rd.moving) {
-    if (Math.abs(rd.pos - rd.anchor) > P.moveMin) { rd.moving = true; rd.mPos = rd.pos; rd.mT = now; }
+    if (Math.abs(rd.pos - rd.anchor) > P.moveMm * spm) { rd.moving = true; rd.mPos = rd.pos; rd.mT = now; }
     return;
   }
-  if (Math.abs(rd.pos - rd.mPos) > P.settle) { rd.mPos = rd.pos; rd.mT = now; return; }
+  if (Math.abs(rd.pos - rd.mPos) > P.settleMm * spm) { rd.mPos = rd.pos; rd.mT = now; return; }
   if (now - rd.mT >= P.settleMs) land();
 }
 
@@ -262,7 +272,6 @@ function glideTick(now) {
   const raw = (rd.pos - rd.lastPos) / dt;
   rd.vel += (1 - Math.exp(-dt / P.tau)) * (raw - rd.vel);
   rd.lastPos = rd.pos; rd.lastT = now;
-  const spm = total / line.lengthMm;                   // seconds of ride per mm of line
   const hs = rd.vel / spm;                              // hand speed, mm/s (negative = backwards)
   const t = ctx.currentTime;
   if (voice) { voice.pos = voicePos(); voice.t = t; }
@@ -292,17 +301,15 @@ function glideTick(now) {
   let rate = 1;
   if (g === 'back' || g === 'fast') {
     const dir = g === 'back' ? -1 : 1, speed = Math.abs(rd.vel);
-    if (!voice || voice.dir !== dir || Math.abs(rd.pos - voice.pos) > 1) startVoice(dir, rd.pos);
+    if (!voice || voice.dir !== dir || Math.abs(rd.pos - voice.pos) > P.farMm * spm) startVoice(dir, rd.pos);
     rate = Math.abs(speed - 1) < P.snap ? 1 : speed;
-    const err = (rd.pos - voice.pos) * voice.dir;
-    if (Math.abs(err) > P.drift) rate *= 1 + P.pull * (err - Math.sign(err) * P.drift);
-    rate = Math.min(P.maxRate, Math.max(dir > 0 ? 1 : P.minRate, rate));
+    rate = Math.min(P.maxRate, Math.max(dir > 0 ? 1 : P.minRate, rate * follow(rd.pos - voice.pos, voice.dir)));
   } else {
     if (!voice || voice.dir < 0) startVoice(1, rd.pos);
     const gap = (rd.pos - voice.pos) / spm;             // mm, > 0: camera ahead of the sound
-    // part of the hand's pace (near 1x: exactly real time), times a small nudge that closes the gap
-    const speed = Math.max(0, rd.vel);
-    const pace = Math.abs(speed - 1) < P.snap ? 1 : 1 + P.gFollow * (speed - 1);
+    // part of the hand's pace relative to gRef (near gRef: exactly real time), times a small nudge that closes the gap
+    const ratio = Math.max(0, hs) / P.gRef;
+    const pace = Math.abs(ratio - 1) < P.snap ? 1 : 1 + P.gFollow * (ratio - 1);
     let nudge = 1;
     if (gap > P.gLead || gap < -P.gLag) startVoice(1, rd.pos);
     else if (gap > P.gNudge) nudge = 1 + (P.gUp - 1) * Math.min(1, (gap - P.gNudge) / (P.gLead - P.gNudge));

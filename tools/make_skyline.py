@@ -1,13 +1,13 @@
 """Jaffa skyline above the water line, the coded ride as its reflection below.
 
-    python3 tools/make_skyline.py line-105        # uses line-105.json for the code
+    python3 tools/make_skyline.py line-105        # uses line-105.json for the code; outputs end in -105
 
 1. Cleans art/sky-source.svg (an image trace): drops the white full-canvas background, turns the white
    windows/arches into real holes, crops to the drawing -> art/sky-clean.svg
-2. Measures the skyline height above the water line per tick (headless Chrome) -> art/sky-profile.json
+2. Measures the skyline height above the water line per tick (headless Chrome) -> art/sky-profile-105.json
 3. Writes two print-ready variants in real millimetres:
-   art/skyline-a.svg  reflection bars in 4 fixed lengths; the reader reads this (sky-105.json, layout "reflection")
-   art/skyline-b.svg  reflection bars that also follow the buildings above (looks more like a reflection;
+   art/skyline-a-105.svg  reflection bars in 4 fixed lengths; the reader reads this (sky-105.json, layout "reflection")
+   art/skyline-b-105.svg  reflection bars that also follow the buildings above (looks more like a reflection;
                       the reader would need to know the expected length per position - not built yet)
 """
 import json
@@ -105,7 +105,8 @@ def main():
     n = len(line["levels"])
     black, holes = clean()
     info = bbox_and_profile(black, holes, n)
-    Path("art/sky-profile.json").write_text(json.dumps(info))
+    size = name.split("-")[-1]
+    Path(f"art/sky-profile-{size}.json").write_text(json.dumps(info))
 
     bbox = info["bbox"]
     Path("art/sky-clean.svg").write_text(
@@ -116,10 +117,10 @@ def main():
     k = line["lengthMm"] / bbox[2]
     len_a = [LEN_A_MM[l] for l in line["levels"]]
     len_b = [max(MIN_B_MM, p * k * FRAC_B[l]) for p, l in zip(info["prof"], line["levels"])]
-    sky_h = compose(black, holes, info, line, len_a, "art/skyline-a.svg")
-    compose(black, holes, info, line, len_b, "art/skyline-b.svg")
+    sky_h = compose(black, holes, info, line, len_a, f"art/skyline-a-{size}.svg")
+    compose(black, holes, info, line, len_b, f"art/skyline-b-{size}.svg")
     # what the scanner needs to read variant A: same code, one-sided bars hanging from the water line
-    sky = dict(line, layout="reflection", heightsMm=LEN_A_MM, tickMm=BAR_MM, art="art/skyline-a.svg")
+    sky = dict(line, layout="reflection", heightsMm=LEN_A_MM, tickMm=BAR_MM, art=f"art/skyline-a-{size}.svg")
     Path(name.replace("line", "sky") + ".json").write_text(json.dumps(sky))
     print(f"skyline {line['lengthMm']} x {sky_h:.1f} mm, {n} reflection bars; "
           f"B lengths {min(len_b):.1f}-{max(len_b):.1f} mm")

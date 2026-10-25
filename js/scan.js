@@ -36,7 +36,7 @@ const DEFAULTS = {
   gNudge: 1.5,     // sound this far (mm) from the camera: start nudging its speed (barely audible)
   gLead: 4,        // camera this far (mm) ahead of the sound: soft jump to the camera
   gLag: 8,         // camera this far (mm) behind the sound: soft jump back
-  gFollow: 0.35,   // how much the sound's speed follows the hand's: 0 = always real time, 1 = like scrub
+  gFollow: 0.3,    // how much the sound's speed follows the hand's: 0 = always real time, 1 = like scrub
   gUp: 1.12,       // fastest nudge
   gDown: 0.92,     // slowest nudge
 };

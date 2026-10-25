@@ -47,6 +47,14 @@ the red mark is the reading point. Tap the screen in play mode to pause.
   3 s move → exactly one jump. History: v1 (tag `checkpoint-stage1-camera-works`) jumped only after 1.5 s of
   movement with a hard cut; v3 followed the camera like scrub, which made hand shake audible.
 - **גרירה**: the camera is the playhead; a resting camera is silence.
+- **סלחני** (glide, scan.js v8): sounds only while the camera moves; any comfortable forward movement plays at
+  real time. From rest the camera must travel `gStart` 2.5 mm one way (hand shake never does). When the camera
+  runs ahead the sound speeds up by at most 12% (`gUp`) from `gNudge` 1.5 mm, and jumps softly past `gLead` 4 mm;
+  when it lags, it slows by at most 8% (`gDown`) and jumps back past `gLag` 8 mm. Faster than `gFast` 15 mm/s
+  it follows like scrub; backwards like scrub. Stops after resting `gHold` 350 ms. All thresholds are in mm on
+  the arm, so they fit any recording length. Fake-camera test on the 10.5 cm line (1x = 4.1 mm/s): shake at rest
+  → silent; 0.5x–2.4x → 100% of the sounding time within −10%/+15% of real time (100% exactly 1x at 1x), about
+  one soft jump per second at 2.4x; backwards plays reversed.
 
 How it reads (`js/reader.js`): ink = darker than its neighbourhood → base line and tilt (±12°) from the
 strongest straight row → each tick measured perpendicular to the base line → heights in units of the tick

@@ -2,6 +2,8 @@
 // Two modes, one continuous voice:
 // "play": the ride always plays at real time; only a deliberate move (more than `moveMin`) jumps it there.
 // "scrub": the camera is the playhead; a resting camera is silence. Near 1x both lock to real time.
+// "glide" (forgiving scrub): sounds only while moving; any comfortable forward movement plays at real time,
+//   catching up with tiny speed changes or soft jumps; very fast forward and backwards behave like scrub.
 
 const DEFAULTS = {
   band: 0.26,      // reading frame height, fraction of the screen
@@ -26,6 +28,16 @@ const DEFAULTS = {
   pull: 0.6,
   stopAt: 0.2,     // scrub: slower than this = silence
   minRate: 0.35, maxRate: 3,
+  // glide mode, all distances/speeds in mm along the printed line (so they fit any recording length)
+  gStart: 2.5,     // from rest, the hand must travel this far (mm) one way before the sound starts
+  gStill: 1,       // moving hand slower than this (mm/s) counts as resting
+  gHold: 350,      // resting this long (ms) before the sound stops
+  gFast: 15,       // forward faster than this (mm/s) = fast forward, the sound speeds up with the hand
+  gNudge: 1.5,     // sound this far (mm) from the camera: start nudging its speed (barely audible)
+  gLead: 4,        // camera this far (mm) ahead of the sound: soft jump to the camera
+  gLag: 8,         // camera this far (mm) behind the sound: soft jump back
+  gUp: 1.12,       // fastest nudge
+  gDown: 0.92,     // slowest nudge
 };
 const LIMITS = {
   band: [0.1, 0.6, 0.02], width: [0.5, 1, 0.02], proc: [400, 1600, 100],
@@ -34,6 +46,8 @@ const LIMITS = {
   lostMs: [100, 2000, 50], moveMin: [0.1, 3, 0.1], settle: [0.05, 1, 0.05], settleMs: [0, 1000, 50],
   snap: [0, 0.6, 0.05], tau: [0.05, 1, 0.05], drift: [0.05, 1, 0.05], pull: [0, 2, 0.1],
   stopAt: [0.02, 0.6, 0.02], minRate: [0.1, 1, 0.05], maxRate: [1, 6, 0.25],
+  gStart: [0.5, 15, 0.5], gStill: [0.2, 10, 0.2], gHold: [0, 2000, 50], gFast: [3, 60, 1], gNudge: [0.25, 10, 0.25],
+  gLead: [1, 30, 0.5], gLag: [1, 40, 1], gUp: [1, 1.5, 0.02], gDown: [0.6, 1, 0.02],
 };
 
 const url = new URLSearchParams(location.search);
@@ -47,11 +61,12 @@ const overlay = document.getElementById('overlay');
 const hintEl = document.getElementById('hint');
 const btnPlay = document.getElementById('mode-play');
 const btnScrub = document.getElementById('mode-scrub');
+const btnGlide = document.getElementById('mode-glide');
 const proc = document.createElement('canvas');
 const pctx = proc.getContext('2d', { willReadFrequently: true });
 
 let line, buffer, reversed, ctx, total = 0;
-let mode = url.get('mode') === 'scrub' ? 'scrub' : 'play';
+let mode = ['scrub', 'glide'].includes(url.get('mode')) ? url.get('mode') : 'play';
 let last = null, detMs = 0, geo = null, gray = null;
 const cam = { pos: null, seen: -1e9, pending: null };   // accepted camera position on the ride
 let wasLocked = false;
@@ -154,12 +169,14 @@ function onReading(now) {
   if (!rd) rd = { pos, lastPos: pos, lastT: now, vel: 0, anchor: null };
   else rd.pos = pos;
   if (mode === 'play') { if (!paused) playTick(now); }
+  else if (mode === 'glide') glideTick(now);
   else tapeTick(now);
 }
 
 function onLost() {
-  // scrub: silence; play: the ride plays on, forwards at real time
+  // scrub: silence; glide: frame() stops it if the line stays lost; play: the ride plays on, forwards at 1x
   if (mode === 'scrub') stopVoice();
+  else if (mode === 'glide') { /* keep going for a moment */ }
   else if (voice) {
     if (voice.dir < 0) startVoice(1, voicePos());
     else { voice.pos = voicePos(); voice.t = ctx.currentTime; voice.rate = 1; voice.src.playbackRate.setTargetAtTime(1, ctx.currentTime, 0.03); }
@@ -235,6 +252,59 @@ function playTick(now) {
   }
   if (Math.abs(rd.pos - rd.mPos) > P.settle) { rd.mPos = rd.pos; rd.mT = now; return; }
   if (now - rd.mT >= P.settleMs) land();
+}
+
+// Glide mode: as much real-time playback as possible while the camera moves forwards.
+function glideTick(now) {
+  const dt = (now - rd.lastT) / 1000;
+  if (dt <= 0) return;
+  const raw = (rd.pos - rd.lastPos) / dt;
+  rd.vel += (1 - Math.exp(-dt / P.tau)) * (raw - rd.vel);
+  rd.lastPos = rd.pos; rd.lastT = now;
+  const spm = total / line.lengthMm;                   // seconds of ride per mm of line
+  const hs = rd.vel / spm;                              // hand speed, mm/s (negative = backwards)
+  const t = ctx.currentTime;
+  if (voice) { voice.pos = voicePos(); voice.t = t; }
+
+  // what the hand is doing. From rest it must really travel `gStart` mm one way (shake goes back and forth
+  // around a point and never gets there); once moving, a direction change needs a clear speed the other way.
+  let g = rd.glide || 'still';
+  if (g === 'still') {
+    if (rd.restAt == null) rd.restAt = rd.pos;
+    const moved = (rd.pos - rd.restAt) / spm;
+    if (moved >= P.gStart) g = hs >= P.gFast ? 'fast' : 'fwd';
+    else if (moved <= -P.gStart) g = 'back';
+  } else if (Math.abs(hs) < P.gStill) {
+    rd.stillSince = rd.stillSince || now;
+    if (now - rd.stillSince > P.gHold) { g = 'still'; rd.restAt = rd.pos; }
+  } else {
+    rd.stillSince = 0;
+    if (hs <= -2 * P.gStill) g = 'back';
+    else if (hs >= P.gFast) g = 'fast';
+    else if (hs >= 2 * P.gStill || g === 'fast') g = 'fwd';
+  }
+  rd.glide = g;
+
+  if (g === 'still') { stopVoice(); return; }
+  if (rd.stillSince) return;                            // resting briefly: the sound carries on as it is
+
+  let rate = 1;
+  if (g === 'back' || g === 'fast') {
+    const dir = g === 'back' ? -1 : 1, speed = Math.abs(rd.vel);
+    if (!voice || voice.dir !== dir || Math.abs(rd.pos - voice.pos) > 1) startVoice(dir, rd.pos);
+    rate = Math.abs(speed - 1) < P.snap ? 1 : speed;
+    const err = (rd.pos - voice.pos) * voice.dir;
+    if (Math.abs(err) > P.drift) rate *= 1 + P.pull * (err - Math.sign(err) * P.drift);
+    rate = Math.min(P.maxRate, Math.max(dir > 0 ? 1 : P.minRate, rate));
+  } else {
+    if (!voice || voice.dir < 0) startVoice(1, rd.pos);
+    const gap = (rd.pos - voice.pos) / spm;             // mm, > 0: camera ahead of the sound
+    if (gap > P.gLead || gap < -P.gLag) startVoice(1, rd.pos);
+    else if (gap > P.gNudge) rate = 1 + (P.gUp - 1) * Math.min(1, (gap - P.gNudge) / (P.gLead - P.gNudge));
+    else if (gap < -P.gNudge) rate = 1 - (1 - P.gDown) * Math.min(1, (-gap - P.gNudge) / (P.gLag - P.gNudge));
+  }
+  voice.src.playbackRate.setTargetAtTime(rate, t, 0.05);
+  voice.rate = rate;
 }
 
 // ---------- drawing ----------
@@ -323,12 +393,15 @@ function setMode(m) {
   stopVoice(); rd = null; paused = false;
   btnPlay.classList.toggle('on', m === 'play');
   btnScrub.classList.toggle('on', m === 'scrub');
+  btnGlide.classList.toggle('on', m === 'glide');
   syncUrl();
 }
 btnPlay.onclick = () => setMode('play');
 btnScrub.onclick = () => setMode('scrub');
+btnGlide.onclick = () => setMode('glide');
 btnPlay.classList.toggle('on', mode === 'play');
 btnScrub.classList.toggle('on', mode === 'scrub');
+btnGlide.classList.toggle('on', mode === 'glide');
 
 // ---------- loop ----------
 
@@ -336,6 +409,7 @@ function frame(now) {
   if (!('requestVideoFrameCallback' in video)) process(now);
   const vp = voicePos();
   if (vp != null && (vp < 0 || vp > buffer.duration)) stopVoice();   // ran off an end of the ride
+  if (mode === 'glide' && voice && now - cam.seen > P.lostMs + P.gHold) stopVoice();   // line lost for a while
   draw(now);
   if (DEBUG) debugTick(now);
   requestAnimationFrame(frame);
@@ -383,7 +457,7 @@ function debugTick(now) {
   const r = last || {}, sp = soundPos();
   const line1 = `fps ${fps} read/s ${procFps} det ${detMs.toFixed(1)}ms ${geo ? geo.pw + 'x' + geo.ph : ''} cam ${video.videoWidth}x${video.videoHeight}`;
   const line2 = `${r.found ? 'FOUND' : r.reason || '-'} ticks ${r.ticks ? r.ticks.length : 0} pitch ${r.pitch ? r.pitch.toFixed(1) : '-'} tilt ${r.base ? r.base.deg : '-'} scale ${r.scale ? r.scale.toFixed(2) : '-'}/${r.offset != null ? r.offset.toFixed(2) : '-'}`;
-  const line3 = `mis ${r.match ? r.match.mis : '-'} 2nd ${r.second ? r.second.mis : '-'} dir ${r.dir || '-'} read ${r.t != null ? r.t.toFixed(2) : '-'} cam ${cam.pos != null ? cam.pos.toFixed(2) : '-'} sound ${sp != null ? sp.toFixed(2) : '-'} vel ${rd ? rd.vel.toFixed(2) : '-'}`;
+  const line3 = `mis ${r.match ? r.match.mis : '-'} 2nd ${r.second ? r.second.mis : '-'} dir ${r.dir || '-'} read ${r.t != null ? r.t.toFixed(2) : '-'} cam ${cam.pos != null ? cam.pos.toFixed(2) : '-'} sound ${sp != null ? sp.toFixed(2) : '-'} vel ${rd ? rd.vel.toFixed(2) : '-'}${rd && rd.glide ? ' glide ' + rd.glide : ''}`;
   document.getElementById('dbg-live').innerHTML = line1 + '<br>' + line2 + '<br>' + line3;
   if (r.mask && geo) {
     const c = document.getElementById('dbg-mask');

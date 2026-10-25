@@ -36,6 +36,7 @@ const DEFAULTS = {
   gNudge: 1.5,     // sound this far (mm) from the camera: start nudging its speed (barely audible)
   gLead: 4,        // camera this far (mm) ahead of the sound: soft jump to the camera
   gLag: 8,         // camera this far (mm) behind the sound: soft jump back
+  gFollow: 0.35,   // how much the sound's speed follows the hand's: 0 = always real time, 1 = like scrub
   gUp: 1.12,       // fastest nudge
   gDown: 0.92,     // slowest nudge
 };
@@ -47,7 +48,7 @@ const LIMITS = {
   snap: [0, 0.6, 0.05], tau: [0.05, 1, 0.05], drift: [0.05, 1, 0.05], pull: [0, 2, 0.1],
   stopAt: [0.02, 0.6, 0.02], minRate: [0.1, 1, 0.05], maxRate: [1, 6, 0.25],
   gStart: [0.5, 15, 0.5], gStill: [0.2, 10, 0.2], gHold: [0, 2000, 50], gFast: [3, 60, 1], gNudge: [0.25, 10, 0.25],
-  gLead: [1, 30, 0.5], gLag: [1, 40, 1], gUp: [1, 1.5, 0.02], gDown: [0.6, 1, 0.02],
+  gLead: [1, 30, 0.5], gLag: [1, 40, 1], gFollow: [0, 1, 0.05], gUp: [1, 1.5, 0.02], gDown: [0.6, 1, 0.02],
 };
 
 const url = new URLSearchParams(location.search);
@@ -299,9 +300,14 @@ function glideTick(now) {
   } else {
     if (!voice || voice.dir < 0) startVoice(1, rd.pos);
     const gap = (rd.pos - voice.pos) / spm;             // mm, > 0: camera ahead of the sound
+    // part of the hand's pace (near 1x: exactly real time), times a small nudge that closes the gap
+    const speed = Math.max(0, rd.vel);
+    const pace = Math.abs(speed - 1) < P.snap ? 1 : 1 + P.gFollow * (speed - 1);
+    let nudge = 1;
     if (gap > P.gLead || gap < -P.gLag) startVoice(1, rd.pos);
-    else if (gap > P.gNudge) rate = 1 + (P.gUp - 1) * Math.min(1, (gap - P.gNudge) / (P.gLead - P.gNudge));
-    else if (gap < -P.gNudge) rate = 1 - (1 - P.gDown) * Math.min(1, (-gap - P.gNudge) / (P.gLag - P.gNudge));
+    else if (gap > P.gNudge) nudge = 1 + (P.gUp - 1) * Math.min(1, (gap - P.gNudge) / (P.gLead - P.gNudge));
+    else if (gap < -P.gNudge) nudge = 1 - (1 - P.gDown) * Math.min(1, (-gap - P.gNudge) / (P.gLag - P.gNudge));
+    rate = Math.min(P.maxRate, Math.max(P.minRate, pace * nudge));
   }
   voice.src.playbackRate.setTargetAtTime(rate, t, 0.05);
   voice.rate = rate;

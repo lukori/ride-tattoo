@@ -55,6 +55,10 @@ the red mark is the reading point. Tap the screen in play mode to pause.
   the arm, so they fit any recording length. Fake-camera test on the 10.5 cm line (1x = 4.1 mm/s): shake at rest
   → silent; 0.5x–2.4x → 100% of the sounding time within −10%/+15% of real time (100% exactly 1x at 1x), about
   one soft jump per second at 2.4x; backwards plays reversed.
+  Since scan.js v9 the sound also follows part of the hand's pace: `gFollow` 0.35 (v8 behaviour = `gFollow=0`;
+  1 = like scrub). Near 1x (±`snap`) it is still exactly real time. Measured, hand pace → sound speed (jumps/s):
+  0.5x → 0.81x (0.3), 1x → 1.00x (0), 1.7x → 1.27x (0.3), 2.4x → 1.54x (1.0); with gFollow 0 it was
+  0.98x / 1.00x / 1.02x / 1.02x with up to 1.7 jumps/s.
 
 How it reads (`js/reader.js`): ink = darker than its neighbourhood → base line and tilt (±12°) from the
 strongest straight row → each tick measured perpendicular to the base line → heights in units of the tick

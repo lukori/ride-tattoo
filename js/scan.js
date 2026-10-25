@@ -1,6 +1,6 @@
 // Stage 1: the camera reads the printed line; the moment under the red mark plays.
 // Two modes, one continuous voice:
-// "play": while the camera moves the sound follows it; when the camera rests the ride plays on by itself.
+// "play": the ride always plays at real time; only a deliberate move (more than `moveMin`) jumps it there.
 // "scrub": the camera is the playhead; a resting camera is silence. Near 1x both lock to real time.
 
 const DEFAULTS = {
@@ -16,7 +16,9 @@ const DEFAULTS = {
   jump: 0.6,       // a reading this far (s) from the last one must repeat `confirm` times
   confirm: 2,
   lostMs: 400,     // no reading for this long = line lost
-  follow: 0.4,     // play: when the camera moves and the sound is this far (s) away, the sound jumps to it
+  moveMin: 0.6,    // play: the camera must move this far (s of line, 0.6 s ≈ 3.5 mm) to count as a move; less = hand shake
+  settle: 0.15,    // play: after a move, the camera counts as settled when it stays within this (s of line)...
+  settleMs: 150,   // ...for this long; then the sound jumps there
   snap: 0.25,      // scrub: camera speed within 1 ± snap plays at exactly real time
   tau: 0.25,       // scrub: camera speed smoothing, seconds
   drift: 0.3,      // scrub: lag allowed before pulling the sound to the camera
@@ -28,7 +30,7 @@ const LIMITS = {
   band: [0.1, 0.6, 0.02], width: [0.5, 1, 0.02], proc: [400, 1600, 100],
   k: [0.02, 0.4, 0.02], win: [9, 81, 4], maxTilt: [0, 30, 2], minTicks: [4, 15, 1],
   maxErr: [0, 4, 1], errFrac: [0, 0.3, 0.02], jump: [0.2, 3, 0.1], confirm: [1, 6, 1],
-  lostMs: [100, 2000, 50], follow: [0.1, 3, 0.1],
+  lostMs: [100, 2000, 50], moveMin: [0.1, 3, 0.1], settle: [0.05, 1, 0.05], settleMs: [0, 1000, 50],
   snap: [0, 0.6, 0.05], tau: [0.05, 1, 0.05], drift: [0.05, 1, 0.05], pull: [0, 2, 0.1],
   stopAt: [0.02, 0.6, 0.02], minRate: [0.1, 1, 0.05], maxRate: [1, 6, 0.25],
 };
@@ -141,17 +143,16 @@ const isLocked = now => cam.pos != null && now - cam.seen < P.lostMs;
 // ---------- sound ----------
 
 let paused = false;
-let rd = null;            // camera motion: { pos, lastPos, lastT, vel, moving }
+let rd = null;            // camera: { pos, lastPos, lastT, vel } + play-mode move tracking
 let voice = null;         // { src, gain, dir, pos, rate, t }
 
 function onReading(now) {
   const pos = cam.pos;
   if (cam.jumped) { rd = null; cam.jumped = false; }     // a jump is a new place, not a fast movement
-  if (!rd) rd = { pos, lastPos: pos, lastT: now, vel: 0, moving: false, fresh: true };
+  if (!rd) rd = { pos, lastPos: pos, lastT: now, vel: 0, anchor: null };
   else rd.pos = pos;
   if (mode === 'play') { if (!paused) playTick(now); }
   else tapeTick(now);
-  rd.fresh = false;
 }
 
 function onLost() {
@@ -217,35 +218,21 @@ function tapeTick(now) {
   if (voice.pos < 0 || voice.pos > buffer.duration) stopVoice();
 }
 
-// Play mode: a resting camera lets the ride play on at real time; a moving camera drives it like scrub.
+// Play mode: always real time, forwards. Small camera motions are ignored. A move of more than `moveMin`
+// from where the camera rested jumps the sound there once the camera settles (unless the sound is already there).
 function playTick(now) {
-  const dt = (now - rd.lastT) / 1000;
-  if (dt > 0) {
-    const raw = (rd.pos - rd.lastPos) / dt;
-    rd.vel += (1 - Math.exp(-dt / P.tau)) * (raw - rd.vel);
-    rd.lastPos = rd.pos; rd.lastT = now;
-  }
-  const speed = Math.abs(rd.vel), dir = rd.vel < 0 ? -1 : 1;
-  if (rd.moving ? speed < P.stopAt : speed > P.stopAt * 2) rd.moving = !rd.moving;
-
-  const t = ctx.currentTime;
-  if (voice) { voice.pos = voicePos(); voice.t = t; }
-  // just found the line (first time, or pointed somewhere new): start there
-  if (rd.fresh && (!voice || Math.abs(rd.pos - voice.pos) > P.follow)) { startVoice(1, rd.pos); return; }
-  if (!voice) { if (rd.moving) startVoice(dir, rd.pos); return; }
-
-  let rate = 1;
+  const sp = voicePos();
+  const land = () => {
+    rd.anchor = rd.pos; rd.moving = false;
+    if (!voice || Math.abs(rd.pos - sp) > P.moveMin) startVoice(1, rd.pos);
+  };
+  if (rd.anchor == null) return land();
   if (!rd.moving) {
-    if (voice.dir < 0) startVoice(1, voice.pos);          // stopped after going backwards: carry on forwards
-  } else {
-    if (dir !== voice.dir || Math.abs(rd.pos - voice.pos) > P.follow) startVoice(dir, rd.pos);
-    rate = Math.abs(speed - 1) < P.snap ? 1 : speed;
-    const err = (rd.pos - voice.pos) * voice.dir;
-    if (Math.abs(err) > P.drift) rate *= 1 + P.pull * (err - Math.sign(err) * P.drift);
-    rate = Math.min(P.maxRate, Math.max(P.minRate, rate));
+    if (Math.abs(rd.pos - rd.anchor) > P.moveMin) { rd.moving = true; rd.mPos = rd.pos; rd.mT = now; }
+    return;
   }
-  voice.src.playbackRate.setTargetAtTime(rate, t, 0.03);
-  voice.rate = rate;
+  if (Math.abs(rd.pos - rd.mPos) > P.settle) { rd.mPos = rd.pos; rd.mT = now; return; }
+  if (now - rd.mT >= P.settleMs) land();
 }
 
 // ---------- drawing ----------

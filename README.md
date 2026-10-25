@@ -40,11 +40,12 @@ Add `?debug` for live numbers, +/- tuning and a log.
 ## Stage 1: camera reads the printed line (`scan.html`)
 Print `line.pdf` at 100% (the 50 mm ruler checks the scale). Point the phone so the line runs along the frame;
 the red mark is the reading point. Tap the screen in play mode to pause.
-- **ניגון מהנקודה** (since scan.js v3): one continuous voice. While the camera moves, the sound follows it like
-  scrub (locks to real time near 1x, backwards plays reversed); when the camera rests, or the line is lost,
-  the ride plays on forwards at real time. Pointing somewhere new (more than `follow` = 0.4 s away) jumps there
-  with a short fade. v1 behaviour (only jumped after the camera moved 1.5 s of line, hard cut) is at tag
-  `checkpoint-stage1-camera-works`.
+- **ניגון מהנקודה** (since scan.js v5): on or off, always real time forwards. Hand shake and small drift are
+  ignored: the camera must move more than `moveMin` (0.6 s of line ≈ 3.5 mm) from where it rested, and then
+  settle (stay within `settle` 0.15 s for `settleMs` 150 ms); the sound then jumps there once, with a short fade.
+  Losing the line keeps playing. Fake-camera test: ±0.2 s shake and 0.3 s slow drift → no jumps; a deliberate
+  3 s move → exactly one jump. History: v1 (tag `checkpoint-stage1-camera-works`) jumped only after 1.5 s of
+  movement with a hard cut; v3 followed the camera like scrub, which made hand shake audible.
 - **גרירה**: the camera is the playhead; a resting camera is silence.
 
 How it reads (`js/reader.js`): ink = darker than its neighbourhood → base line and tilt (±12°) from the

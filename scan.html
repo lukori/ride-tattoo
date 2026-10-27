@@ -22,11 +22,11 @@
   footer button.on { background: var(--head); color: #fff; }
   #start { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
     gap: 16px; background: var(--paper); color: var(--ink); padding: 24px; text-align: center; z-index: 10; }
-  #start .titles { display: flex; flex-direction: column; align-items: center; }
-  #start .big { font-family: "Secular One", "Heebo", sans-serif; font-size: 66px; line-height: 1; }
-  #start h1 { font-weight: 400; font-size: 20px; margin: 4px 0 0; }
+  #start h1 { font-family: "Secular One", "Heebo", sans-serif; font-weight: 400; font-size: 73px; line-height: 1; margin: 0; }
+  #start > :not(canvas) { position: relative; }
+  #pulse { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
   #start p { margin: 0; color: #6d675c; max-width: 320px; line-height: 1.5; }
-  #start button { font: inherit; font-size: 17px; padding: 14px 40px; border-radius: 12px; border: 0;
+  #start button { font: inherit; font-size: 17px; padding: 11px 34px; border-radius: 11px; border: 0;
     background: var(--ink); color: var(--paper); }
   #start[hidden] { display: none; }
   #debug { position: fixed; top: calc(env(safe-area-inset-top) + 56px); left: 8px; z-index: 5; direction: ltr;
@@ -47,16 +47,14 @@
   <button id="mode-glide">גרירה</button>
 </footer>
 <div id="start">
-  <div class="titles">
-    <div class="big">הדרך</div>
-    <h1>מה שישאר אחרי</h1>
-  </div>
+  <canvas id="pulse"></canvas>
+  <h1>הדרך</h1>
   <p>כוון את הקו האדום לקעקוע ונגן את הדרך</p>
   <button id="go">התחל</button>
   <p id="err"></p>
 </div>
 <div id="debug" hidden></div>
 <script src="js/reader.js?v=2"></script>
-<script src="js/scan.js?v=14"></script>
+<script src="js/scan.js?v=15"></script>
 </body>
 </html>

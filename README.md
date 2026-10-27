@@ -146,5 +146,8 @@ Synthetic test: 95/96 read, 0 wrong. (`make_skyline.py` now takes an optional ou
   the sound, the white arrow the camera. (v12 had white loudness bars instead.)
 - Font: Heebo (Google Fonts), falling back to the system font.
 - The reading frame is marked by four white corners (v14; before: a full rectangle, green when locked).
-- Start screen (light): "הדרך" large in Secular One, subtitle "מה שישאר אחרי", the line
-  "כוון את הקו האדום לקעקוע ונגן את הדרך", then the start button.
+- Start screen (light, v15): "הדרך" in Secular One 73 px (the subtitle "מה שישאר אחרי" was removed), the line
+  "כוון את הקו האדום לקעקוע ונגן את הדרך", then a smaller start button (padding 11/34 px, was 14/40).
+  Experimental: a thin black line runs up the middle of the screen, broken 28 px above the title and below the
+  button, trembling (a few summed sines with a slowly swelling strength; `pulse()` in scan.js). Remove by deleting
+  the canvas `#pulse` and `pulse()`.

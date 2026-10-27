@@ -319,6 +319,46 @@ function glideTick(now) {
   voice.rate = rate;
 }
 
+// ---------- start screen ----------
+
+// A thin black line runs up the middle of the start screen, broken around the title, text and button,
+// trembling a little as if it were carrying the sound.
+(function pulse() {
+  const start = document.getElementById('start'), cv = document.getElementById('pulse');
+  const title = start.querySelector('h1'), btn = document.getElementById('go');
+  const gap = 28;
+  function frame(now) {
+    if (start.hidden) return;
+    const dpr = window.devicePixelRatio || 1, w = start.clientWidth, h = start.clientHeight;
+    if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) {
+      cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+    }
+    const g = cv.getContext('2d');
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, w, h);
+    const t = now / 1000, cx = w / 2;
+    // the strength swells and fades slowly, like a voice
+    const amp = 0.6 + 0.9 * Math.max(0, Math.sin(t * 1.3) * Math.sin(t * 0.47 + 1) + 0.3 * Math.sin(t * 3.1));
+    const at = y => cx + amp * (Math.sin(y * 0.09 + t * 17) * 0.8 + Math.sin(y * 0.031 - t * 9) * 0.6 + Math.sin(y * 0.23 + t * 29) * 0.25);
+    g.strokeStyle = '#1b1a17'; g.lineWidth = 1;
+    const seg = (y0, y1) => {
+      if (y1 - y0 < 4) return;
+      g.beginPath();
+      for (let y = y0; y <= y1; y += 2) {
+        const fade = Math.min(1, (y - y0) / 30, (y1 - y) / 30);   // the ends stay still
+        const x = cx + (at(y) - cx) * fade;
+        y === y0 ? g.moveTo(x, y) : g.lineTo(x, y);
+      }
+      g.stroke();
+    };
+    const top = title.getBoundingClientRect().top, bottom = btn.getBoundingClientRect().bottom;
+    seg(0, top - gap);
+    seg(bottom + gap, h);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+
 // ---------- drawing ----------
 
 function resize() {

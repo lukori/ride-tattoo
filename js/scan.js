@@ -328,6 +328,53 @@ function resize() {
 }
 window.addEventListener('resize', resize);
 
+// The ride map is a white tyre track. Only the stretches the sound has passed are printed solid;
+// the rest is a faint ghost of the tread, so every viewing leaves its own trail.
+let tread = null;         // pre-rendered tread texture { c, w, h, dpr }
+let trail = null;         // per tick: has the sound passed here
+let trailLast = -1;
+
+function makeTread(w, h, dpr) {
+  const c = document.createElement('canvas');
+  c.width = Math.round(w * dpr); c.height = Math.round(h * dpr);
+  const g = c.getContext('2d');
+  g.scale(dpr, dpr);
+  g.fillStyle = '#fff';
+  const pitch = 10, lug = 6, slant = 5, row = h * 0.4, mid = h * 0.12;
+  const rowB = h - row;                                // bottom row starts here
+  for (let x = -pitch; x < w + pitch; x += pitch) {
+    // top row leans right, bottom row leans left (a chevron tread)
+    g.beginPath(); g.moveTo(x, row); g.lineTo(x + slant, 0); g.lineTo(x + slant + lug, 0); g.lineTo(x + lug, row); g.fill();
+    g.beginPath(); g.moveTo(x, rowB); g.lineTo(x + lug, rowB); g.lineTo(x + lug + slant, h); g.lineTo(x + slant, h); g.fill();
+    g.fillRect(x + pitch / 2, h / 2 - mid / 2, pitch - 3, mid);   // thin centre rib
+  }
+  // dirt: specks and a few blotches knocked out of the white
+  let seed = 7;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  g.globalCompositeOperation = 'destination-out';
+  for (let i = 0; i < w * h / 9; i++) {
+    g.beginPath(); g.arc(rnd() * w, rnd() * h, 0.3 + rnd() * rnd() * 1.4, 0, 7); g.fill();
+  }
+  for (let i = 0; i < w / 14; i++) {
+    const cx = rnd() * w, cy = rnd() * h;
+    for (let k = 0; k < 7; k++) { g.beginPath(); g.arc(cx + (rnd() - .5) * 5, cy + (rnd() - .5) * 4, 0.5 + rnd() * 1.3, 0, 7); g.fill(); }
+  }
+  return { c, w, h, dpr };
+}
+
+// mark the ticks the sound has passed since the last frame (filling small gaps, not jumps)
+function markTrail(sp) {
+  const n = line.levels.length;
+  if (!trail) trail = new Uint8Array(n);
+  if (sp == null) { trailLast = -1; return; }
+  const i = Math.min(n - 1, Math.max(0, Math.floor(sp / line.tickSeconds)));
+  if (trailLast >= 0 && Math.abs(i - trailLast) <= 3) {
+    for (let k = Math.min(i, trailLast); k <= Math.max(i, trailLast); k++) trail[k] = 1;
+  }
+  trail[i] = 1;
+  trailLast = i;
+}
+
 function hint(now) {
   if (isLocked(now)) return mode === 'play' && paused ? 'מושהה. גע במסך כדי להמשיך' : '';
   if (!last || last.reason === 'no line') return 'כוון את הקו לתוך המסגרת';
@@ -369,13 +416,20 @@ function draw(now) {
   g.save();
   g.shadowColor = 'rgba(0,0,0,.6)'; g.shadowBlur = 3;     // white on the camera image, a soft shadow keeps it legible on light skin
   const sp = soundPos();
-  const maxMm = Math.max(...line.heightsMm);
-  g.lineWidth = Math.max(1, step * 0.34);
-  line.levels.forEach((lv, i) => {
-    const x = mx0 + (i + 0.5) * step, hh = line.heightsMm[lv] / maxMm * 16;
-    g.strokeStyle = sp != null && (i + 0.5) * line.tickSeconds > sp ? 'rgba(255,255,255,.45)' : '#fff';
-    g.beginPath(); g.moveTo(x, my - hh); g.lineTo(x, my + hh); g.stroke();
-  });
+  markTrail(sp);
+  const th = 28, ty = my - th / 2;
+  if (!tread || tread.w !== mx1 - mx0 || tread.dpr !== dpr) tread = makeTread(mx1 - mx0, th, dpr);
+  g.globalAlpha = 0.22;                                 // the tread not yet ridden
+  g.drawImage(tread.c, mx0, ty, tread.w, th);
+  g.globalAlpha = 1;
+  const k = tread.c.width / tread.w;
+  for (let i = 0; i < n; i++) {
+    if (!trail[i]) continue;
+    let j = i; while (j + 1 < n && trail[j + 1]) j++;     // draw each ridden stretch in one go
+    const x = i * step, wd = (j - i + 1) * step;
+    g.drawImage(tread.c, x * k, 0, wd * k, tread.c.height, mx0 + x, ty, wd, th);
+    i = j;
+  }
   if (cam.pos != null) {
     const x = mx0 + cam.pos / total * (mx1 - mx0);
     g.fillStyle = locked ? '#fff' : 'rgba(255,255,255,.45)';

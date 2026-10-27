@@ -3,12 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500&display=swap" rel="stylesheet">
 <title>הדרך · סריקה</title>
 <style>
   :root { --paper: #f3efe7; --ink: #1b1a17; --head: #d4553c; --ok: #7fd18b; }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; height: 100%; background: #000; color: var(--paper); overflow: hidden;
-    font-family: -apple-system, "Helvetica Neue", Arial, sans-serif; overscroll-behavior: none; }
+    font-family: "Heebo", -apple-system, "Helvetica Neue", Arial, sans-serif; overscroll-behavior: none; }
   #cam { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; }
   #overlay { position: fixed; inset: 0; width: 100%; height: 100%; touch-action: none; }
   #hint { position: fixed; top: calc(env(safe-area-inset-top) + 16px); left: 16px; right: 16px; text-align: center;
@@ -49,6 +52,6 @@
 </div>
 <div id="debug" hidden></div>
 <script src="js/reader.js?v=2"></script>
-<script src="js/scan.js?v=12"></script>
+<script src="js/scan.js?v=13"></script>
 </body>
 </html>

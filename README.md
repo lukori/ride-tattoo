@@ -140,5 +140,8 @@ Synthetic test: 95/96 read, 0 wrong. (`make_skyline.py` now takes an optional ou
 - Mode buttons: "ניגון מהנקודה" and "גרירה". The "גרירה" button runs the forgiving glide mode (`mode=glide`).
   The old strict scrub button was removed; scrub still works with `?mode=scrub`.
 - Buttons have a red border (the playhead colour #d4553c); the active one is filled red.
-- The ride map above the buttons is white with no background box (played part solid white, the rest 45% white),
-  with a soft shadow so it stays legible on light skin. The camera-position arrow is white too.
+- The ride map above the buttons is a white tyre track (chevron tread with "dirt", drawn in `makeTread`), with a
+  soft shadow so it stays legible on light skin. Only the stretches the sound has actually passed are printed solid
+  (`trail`, kept for the visit, gaps of up to 3 ticks filled); the rest is a 22% ghost of the tread. The red line is
+  the sound, the white arrow the camera. (v12 had white loudness bars instead.)
+- Font: Heebo (Google Fonts), falling back to the system font.

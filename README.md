@@ -121,6 +121,15 @@ Fake camera, 2-min recording: play - shake 0 jumps, a 10 mm move 1 jump to the r
 silent, 2 mm/s → 0.85x, 4 mm/s → 1.02x (≈1 soft jump per 1.5 s), 8 mm/s → 1.32x; scrub - real time is
 0.76 mm/s, below the stop threshold, so scrub here is always fast-forward (lower `stopMm` to allow it).
 
+## Final recording (T2_bike_03, 2:34)
+Source mp3 192 kb/s stereo, 3.7 MB; its channels are almost identical (correlation 0.975), so it is stored as
+mono AAC 80 kb/s: `audio/final.m4a`, 1.6 MB.
+`python3 tools/make_line.py audio/final.m4a --length 95 --pitch 1.47 --out line-95-final` then
+`python3 tools/make_skyline.py line-95-final 95-final` → `sky-95-final.json`, `art/skyline-a-95-final.svg`,
+print `sky-95-final.pdf` / `sky-95-final-mirror.pdf`; scan `scan.html?line=sky-95-final`.
+65 bars of 2.38 s, 1.63 s per mm; bar heights follow this ride's loudness (17 nudged for uniqueness).
+Synthetic test: 95/96 read, 0 wrong. (`make_skyline.py` now takes an optional output tag.)
+
 ## Next
 1. Tune stage 1 on the phone with the printed page.
 2. AR progress over the page/skin.

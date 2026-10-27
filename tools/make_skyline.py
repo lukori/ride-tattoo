@@ -1,6 +1,7 @@
 """Jaffa skyline above the water line, the coded ride as its reflection below.
 
     python3 tools/make_skyline.py line-105        # uses line-105.json for the code; outputs end in -105
+    python3 tools/make_skyline.py line-95-final 95-final   # explicit output tag
 
 1. Cleans art/sky-source.svg (an image trace): drops the white full-canvas background, turns the white
    windows/arches into real holes, crops to the drawing -> art/sky-clean.svg
@@ -105,7 +106,7 @@ def main():
     n = len(line["levels"])
     black, holes = clean()
     info = bbox_and_profile(black, holes, n)
-    size = name.split("-")[-1]
+    size = sys.argv[2] if len(sys.argv) > 2 else name.split("-")[-1]
     Path(f"art/sky-profile-{size}.json").write_text(json.dumps(info))
 
     bbox = info["bbox"]
@@ -121,7 +122,7 @@ def main():
     compose(black, holes, info, line, len_b, f"art/skyline-b-{size}.svg")
     # what the scanner needs to read variant A: same code, one-sided bars hanging from the water line
     sky = dict(line, layout="reflection", heightsMm=LEN_A_MM, tickMm=BAR_MM, art=f"art/skyline-a-{size}.svg")
-    Path(name.replace("line", "sky") + ".json").write_text(json.dumps(sky))
+    Path(f"sky-{size}.json").write_text(json.dumps(sky))
     print(f"skyline {line['lengthMm']} x {sky_h:.1f} mm, {n} reflection bars; "
           f"B lengths {min(len_b):.1f}-{max(len_b):.1f} mm")
 

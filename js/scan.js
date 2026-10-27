@@ -19,6 +19,8 @@ const DEFAULTS = {
   minTicks: 6,     // ticks needed for a reading
   maxErr: 1,       // misread tick heights always allowed
   errFrac: 0.1,    // ...or this fraction of the ticks seen
+  errMax: 0.3,     // ...or up to this fraction, when the winner leads every other place by `gapFrac` of the ticks
+  gapFrac: 0.25,
   jumpMm: 2.5,     // a reading this far (mm) from the last one must repeat `confirm` times
   confirm: 2,
   lostMs: 400,     // no reading for this long = line lost
@@ -48,7 +50,7 @@ const DEFAULTS = {
 const LIMITS = {
   band: [0.1, 0.6, 0.02], width: [0.5, 1, 0.02], proc: [400, 1600, 100],
   k: [0.02, 0.4, 0.02], win: [9, 81, 4], maxTilt: [0, 30, 2], edgeMin: [2, 60, 2], glare: [150, 255, 4], halo: [5, 80, 5], minTicks: [4, 15, 1],
-  maxErr: [0, 4, 1], errFrac: [0, 0.3, 0.02], jumpMm: [0.5, 15, 0.5], confirm: [1, 6, 1],
+  maxErr: [0, 4, 1], errFrac: [0, 0.3, 0.02], errMax: [0, 0.5, 0.02], gapFrac: [0.1, 0.6, 0.05], jumpMm: [0.5, 15, 0.5], confirm: [1, 6, 1],
   lostMs: [100, 2000, 50], moveMm: [0.5, 15, 0.5], settleMm: [0.1, 5, 0.1], settleMs: [0, 1000, 50],
   snap: [0, 0.6, 0.05], tau: [0.05, 1, 0.05], driftMm: [0.2, 6, 0.2], pull: [0, 1, 0.05], farMm: [1, 20, 0.5],
   stopMm: [0.1, 5, 0.1], minRate: [0.1, 1, 0.05], maxRate: [1, 6, 0.25],
@@ -551,7 +553,7 @@ function buildDebug() {
   dbg.hidden = false;
   dbg.innerHTML = '<div id="dbg-live"></div><canvas id="dbg-mask"></canvas>' + Object.keys(P).map(k =>
     `<div class="row"><span>${k} <b id="v-${k}"></b></span><button data-k="${k}" data-d="-1">−</button><button data-k="${k}" data-d="1">+</button></div>`
-  ).join('') + '<div class="row"><button id="dbg-copy">Copy log</button><button id="dbg-save">Save log</button></div>';
+  ).join('') + '<div class="row"><button id="dbg-copy">Copy log</button><button id="dbg-save">Save log</button><button id="dbg-frame">Save frame</button></div>';
   dbg.addEventListener('click', e => {
     const k = e.target.dataset.k;
     if (k) { P[k] = clampParam(k, +(P[k] + LIMITS[k][2] * e.target.dataset.d).toFixed(3)); syncUrl(); }
@@ -562,6 +564,12 @@ function buildDebug() {
     a.href = URL.createObjectURL(new Blob([logText()], { type: 'text/plain' }));
     a.download = `scan-log-${Date.now()}.txt`; a.click();
   };
+  // the exact strip the reader sees, so it can be replayed off the phone
+  document.getElementById('dbg-frame').onclick = () => proc.toBlob(b => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(b);
+    a.download = `scan-frame-${Date.now()}.png`; a.click();
+  }, 'image/png');
 }
 const logText = () => `params ${JSON.stringify(P)}\nmode ${mode}\nua ${navigator.userAgent}\n` + log.join('\n');
 

@@ -179,3 +179,16 @@ no glare 60/0 -> 60/0; round spots 53-60 -> 57-60, all 0 wrong; streak over the 
 soft sheen over the bars 2/0 -> 26/0; streak over the water line 6/0 -> 10/0 (hard: the water line itself is hidden).
 `glare` 240 read the soft sheen better (28) but gave one wrong reading with the water line hidden, so 228.
 Anchor before this change: `checkpoint-ui-tyre-qr`.
+
+## Real skin: relaxed acceptance (reader v4, scan v18)
+
+A phone log on the printed tattoo showed many frames with 30-50 bars seen and the right place far ahead of every
+other place (e.g. 7 misread bars at the winner vs 17 at the runner-up) rejected only because more than `errFrac`
+(10%) of the bars were misread. Now a reading is also accepted with up to `errMax` (30%) misread bars when the
+winner leads the runner-up by at least `gapFrac` (25%) of the bars (and at least 5). The old rule still applies too.
+Bars that run out of the reading frame now count as "at least this long", like bars cut by glare.
+Debug has a "Save frame" button: it downloads the exact strip the reader sees, so real frames can be replayed.
+
+Synthetic test, right / wrong of 60, old rule -> new: worn tattoo (rubbed-off bits, specks) 45/0 -> 57/0;
+heavily worn 15/0 -> 45/0; worn + glare streak 13/0 -> 19/0; all other scenarios unchanged or better, 0 wrong.
+Anchor before this change: `checkpoint-glare-reader`.

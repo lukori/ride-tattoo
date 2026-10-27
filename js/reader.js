@@ -191,6 +191,8 @@ const Reader = (() => {
           const j = pastGlare(glare(k + 1) ? k + 1 : k + 2);
           if (j > 0 && (at(j) || at(j + 1))) k = at(j) ? j : j + 1;
           else { cut[x] = 1; break; }
+        } else if (!inside(k + 1) || !inside(k + 2)) {
+          cut[x] = 1; break;                                  // runs out of the frame: at least this long
         } else {
           // ending where the skin is lit up (the soft rim of a glare spot) the bar may just have faded out
           for (let j = k + 1; j <= k + 10; j++) if (glare(j) || (inside(j) && gray[py(j) * w + px(j)] > halo)) { cut[x] = 1; break; }
@@ -298,7 +300,11 @@ const Reader = (() => {
     // a bar cut by glare says little (only "at least this long"), so it counts for less evidence
     const nCut = ticks.filter(t => t.cut).length, nt = ticks.length - nCut + 0.3 * nCut;
     const allowed = Math.max(P.maxErr, Math.floor(nt * P.errFrac));
-    if (!best || best.mis > allowed || (second && second.mis < best.mis + Math.max(2, Math.ceil(nt * 0.2)))) { out.reason = 'unsure'; return out; }
+    // on real skin more heights are misread; still fine while the winner is very far ahead of any other place
+    const lead = second ? second.mis - best.mis : Infinity;
+    const ok = best && lead >= Math.max(2, Math.ceil(nt * 0.2)) &&
+      (best.mis <= allowed || (best.mis <= nt * P.errMax && lead >= Math.max(5, Math.ceil(nt * P.gapFrac))));
+    if (!ok) { out.reason = 'unsure'; return out; }
 
     // fractional tick index under the centre of the strip
     const cx = w / 2;

@@ -151,3 +151,11 @@ Synthetic test: 95/96 read, 0 wrong. (`make_skyline.py` now takes an optional ou
   Experimental: a thin black line runs up the middle of the screen, broken 28 px above the title and below the
   button, trembling (a few summed sines with a slowly swelling strength; `pulse()` in scan.js). Remove by deleting
   the canvas `#pulse` and `pulse()`.
+
+## Permanent link and QR code (v16)
+
+- https://lukori.github.io/ride-tattoo/scan.html with no parameters opens the printed tattoo (`sky-95-old-final`)
+  in glide mode ("גרירה"). The QR code in `qr/ride-qr.svg` / `qr/ride-qr.png` points to that plain link, so when a
+  new tattoo is printed only the default `LINE` in `js/scan.js` changes and the printed QR keeps working.
+  `?line=` and `?mode=play|scrub` still override.
+- Start-screen tremble strength raised: amp = 1.1 + 1.0·swell px (was 0.6 + 0.9·swell), so it is never near straight.

@@ -58,7 +58,7 @@ const url = new URLSearchParams(location.search);
 const P = { ...DEFAULTS };
 for (const k in P) if (url.has(k)) P[k] = clampParam(k, parseFloat(url.get(k)));
 const DEBUG = url.has('debug');
-const LINE = /^[\w-]+$/.test(url.get('line') || '') ? url.get('line') : 'line';   // ?line=line-105 for the 10.5 cm print
+const LINE = /^[\w-]+$/.test(url.get('line') || '') ? url.get('line') : 'sky-95-old-final';   // default = the printed tattoo, so the plain link (and its QR code) always works
 
 const video = document.getElementById('cam');
 const overlay = document.getElementById('overlay');
@@ -70,7 +70,7 @@ const pctx = proc.getContext('2d', { willReadFrequently: true });
 
 let line, buffer, reversed, ctx, total = 0;
 let spm = 1;              // seconds of ride per mm of printed line
-let mode = ['scrub', 'glide'].includes(url.get('mode')) ? url.get('mode') : 'play';
+let mode = ['scrub', 'play'].includes(url.get('mode')) ? url.get('mode') : 'glide';
 let last = null, detMs = 0, geo = null, gray = null;
 const cam = { pos: null, seen: -1e9, pending: null };   // accepted camera position on the ride
 let wasLocked = false;
@@ -338,7 +338,7 @@ function glideTick(now) {
     g.clearRect(0, 0, w, h);
     const t = now / 1000, cx = w / 2;
     // the strength swells and fades slowly, like a voice
-    const amp = 0.6 + 0.9 * Math.max(0, Math.sin(t * 1.3) * Math.sin(t * 0.47 + 1) + 0.3 * Math.sin(t * 3.1));
+    const amp = 1.1 + 1.0 * Math.max(0, Math.sin(t * 1.3) * Math.sin(t * 0.47 + 1) + 0.3 * Math.sin(t * 3.1));
     const at = y => cx + amp * (Math.sin(y * 0.09 + t * 17) * 0.8 + Math.sin(y * 0.031 - t * 9) * 0.6 + Math.sin(y * 0.23 + t * 29) * 0.25);
     g.strokeStyle = '#1b1a17'; g.lineWidth = 1;
     const seg = (y0, y1) => {
@@ -537,10 +537,11 @@ process = now => { procCount++; _process(now); };
 function syncUrl() {
   const q = new URLSearchParams();
   if (DEBUG) q.set('debug', '');
-  if (mode !== 'play') q.set('mode', mode);
-  if (LINE !== 'line') q.set('line', LINE);
+  if (mode !== 'glide') q.set('mode', mode);
+  if (LINE !== 'sky-95-old-final') q.set('line', LINE);
   for (const k in P) if (P[k] !== DEFAULTS[k]) q.set(k, +(+P[k]).toFixed(3));
-  history.replaceState(null, '', '?' + q.toString().replace('debug=', 'debug'));
+  const qs = q.toString().replace('debug=', 'debug');
+  history.replaceState(null, '', qs ? '?' + qs : location.pathname);
 }
 
 function buildDebug() {

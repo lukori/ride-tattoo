@@ -15,8 +15,8 @@
     font-size: 16px; text-shadow: 0 1px 3px rgba(0,0,0,.8); }
   footer { position: fixed; left: 16px; right: 16px; bottom: calc(env(safe-area-inset-bottom) + 16px); display: flex; gap: 8px; }
   footer button { flex: 1; font: inherit; font-size: 15px; padding: 12px 8px; border-radius: 10px;
-    border: 1px solid var(--paper); background: rgba(0,0,0,.35); color: var(--paper); }
-  footer button.on { background: var(--paper); color: var(--ink); }
+    border: 1.5px solid var(--head); background: rgba(0,0,0,.35); color: var(--paper); }
+  footer button.on { background: var(--head); color: #fff; }
   #start { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
     gap: 16px; background: var(--paper); color: var(--ink); padding: 24px; text-align: center; z-index: 10; }
   #start h1 { font-weight: 400; font-size: 22px; margin: 0; }
@@ -39,8 +39,7 @@
 <div id="hint"></div>
 <footer>
   <button id="mode-play" class="on">ניגון מהנקודה</button>
-  <button id="mode-scrub">גרירה</button>
-  <button id="mode-glide">סלחני</button>
+  <button id="mode-glide">גרירה</button>
 </footer>
 <div id="start">
   <h1>הדרך · סריקה</h1>
@@ -50,6 +49,6 @@
 </div>
 <div id="debug" hidden></div>
 <script src="js/reader.js?v=2"></script>
-<script src="js/scan.js?v=11"></script>
+<script src="js/scan.js?v=12"></script>
 </body>
 </html>

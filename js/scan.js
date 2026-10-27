@@ -64,7 +64,6 @@ const video = document.getElementById('cam');
 const overlay = document.getElementById('overlay');
 const hintEl = document.getElementById('hint');
 const btnPlay = document.getElementById('mode-play');
-const btnScrub = document.getElementById('mode-scrub');
 const btnGlide = document.getElementById('mode-glide');
 const proc = document.createElement('canvas');
 const pctx = proc.getContext('2d', { willReadFrequently: true });
@@ -367,19 +366,19 @@ function draw(now) {
   // the whole line, with where the sound is and where the camera is
   const foot = document.querySelector('footer').getBoundingClientRect().top;
   const mx0 = 16, mx1 = sw - 16, my = foot - 44, n = line.levels.length, step = (mx1 - mx0) / n;
-  g.fillStyle = 'rgba(243,239,231,.92)';
-  g.beginPath(); g.roundRect ? g.roundRect(mx0 - 8, my - 26, mx1 - mx0 + 16, 52, 8) : g.rect(mx0 - 8, my - 26, mx1 - mx0 + 16, 52); g.fill();
+  g.save();
+  g.shadowColor = 'rgba(0,0,0,.6)'; g.shadowBlur = 3;     // white on the camera image, a soft shadow keeps it legible on light skin
   const sp = soundPos();
   const maxMm = Math.max(...line.heightsMm);
   g.lineWidth = Math.max(1, step * 0.34);
   line.levels.forEach((lv, i) => {
     const x = mx0 + (i + 0.5) * step, hh = line.heightsMm[lv] / maxMm * 16;
-    g.strokeStyle = sp != null && (i + 0.5) * line.tickSeconds > sp ? '#b9b2a5' : '#1b1a17';
+    g.strokeStyle = sp != null && (i + 0.5) * line.tickSeconds > sp ? 'rgba(255,255,255,.45)' : '#fff';
     g.beginPath(); g.moveTo(x, my - hh); g.lineTo(x, my + hh); g.stroke();
   });
   if (cam.pos != null) {
     const x = mx0 + cam.pos / total * (mx1 - mx0);
-    g.fillStyle = locked ? '#1b1a17' : '#b9b2a5';
+    g.fillStyle = locked ? '#fff' : 'rgba(255,255,255,.45)';
     g.beginPath(); g.moveTo(x, my + 19); g.lineTo(x - 5, my + 25); g.lineTo(x + 5, my + 25); g.fill();
   }
   if (sp != null) {
@@ -387,6 +386,7 @@ function draw(now) {
     g.strokeStyle = '#d4553c'; g.lineWidth = 2;
     g.beginPath(); g.moveTo(x, my - 22); g.lineTo(x, my + 18); g.stroke();
   }
+  g.restore();
   hintEl.textContent = hint(now);
 }
 
@@ -405,15 +405,12 @@ function setMode(m) {
   mode = m;
   stopVoice(); rd = null; paused = false;
   btnPlay.classList.toggle('on', m === 'play');
-  btnScrub.classList.toggle('on', m === 'scrub');
   btnGlide.classList.toggle('on', m === 'glide');
   syncUrl();
 }
 btnPlay.onclick = () => setMode('play');
-btnScrub.onclick = () => setMode('scrub');
 btnGlide.onclick = () => setMode('glide');
 btnPlay.classList.toggle('on', mode === 'play');
-btnScrub.classList.toggle('on', mode === 'scrub');
 btnGlide.classList.toggle('on', mode === 'glide');
 
 // ---------- loop ----------

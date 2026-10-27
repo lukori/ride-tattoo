@@ -134,3 +134,11 @@ Synthetic test: 95/96 read, 0 wrong. (`make_skyline.py` now takes an optional ou
 1. Tune stage 1 on the phone with the printed page.
 2. AR progress over the page/skin.
 3. Temporary tattoo print + calibration on skin.
+
+## UI (scan page, v12)
+
+- Mode buttons: "ניגון מהנקודה" and "גרירה". The "גרירה" button runs the forgiving glide mode (`mode=glide`).
+  The old strict scrub button was removed; scrub still works with `?mode=scrub`.
+- Buttons have a red border (the playhead colour #d4553c); the active one is filled red.
+- The ride map above the buttons is white with no background box (played part solid white, the rest 45% white),
+  with a soft shadow so it stays legible on light skin. The camera-position arrow is white too.

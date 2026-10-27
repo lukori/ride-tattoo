@@ -14,6 +14,8 @@ const DEFAULTS = {
   win: 25,         // ink: neighbourhood size, px
   maxTilt: 12,     // degrees of line tilt searched
   edgeMin: 12,     // skyline: brightness step needed to call an edge the water line
+  glare: 228,      // grey level (0-255) from which light counts as glare: hides the ink, neither ink nor skin
+  halo: 25,        // a bar ending where the skin is this much brighter than usual may be cut by glare
   minTicks: 6,     // ticks needed for a reading
   maxErr: 1,       // misread tick heights always allowed
   errFrac: 0.1,    // ...or this fraction of the ticks seen
@@ -45,7 +47,7 @@ const DEFAULTS = {
 };
 const LIMITS = {
   band: [0.1, 0.6, 0.02], width: [0.5, 1, 0.02], proc: [400, 1600, 100],
-  k: [0.02, 0.4, 0.02], win: [9, 81, 4], maxTilt: [0, 30, 2], edgeMin: [2, 60, 2], minTicks: [4, 15, 1],
+  k: [0.02, 0.4, 0.02], win: [9, 81, 4], maxTilt: [0, 30, 2], edgeMin: [2, 60, 2], glare: [150, 255, 4], halo: [5, 80, 5], minTicks: [4, 15, 1],
   maxErr: [0, 4, 1], errFrac: [0, 0.3, 0.02], jumpMm: [0.5, 15, 0.5], confirm: [1, 6, 1],
   lostMs: [100, 2000, 50], moveMm: [0.5, 15, 0.5], settleMm: [0.1, 5, 0.1], settleMs: [0, 1000, 50],
   snap: [0, 0.6, 0.05], tau: [0.05, 1, 0.05], driftMm: [0.2, 6, 0.2], pull: [0, 1, 0.05], farMm: [1, 20, 0.5],
@@ -417,6 +419,7 @@ function markTrail(sp) {
 
 function hint(now) {
   if (isLocked(now)) return mode === 'play' && paused ? 'מושהה. גע במסך כדי להמשיך' : '';
+  if (last && last.glare > 0.03) return 'יש ברק על הקעקוע. הטה מעט את הטלפון';
   if (!last || last.reason === 'no line') return 'כוון את הקו לתוך המסגרת';
   if (last.pitch && last.pitch < 7) return 'התקרב לדף';
   if (last.pitch && last.pitch > 60) return 'התרחק מעט מהדף';
@@ -568,7 +571,7 @@ function debugTick(now) {
   for (const k in P) document.getElementById('v-' + k).textContent = P[k];
   const r = last || {}, sp = soundPos();
   const line1 = `fps ${fps} read/s ${procFps} det ${detMs.toFixed(1)}ms ${geo ? geo.pw + 'x' + geo.ph : ''} cam ${video.videoWidth}x${video.videoHeight}`;
-  const line2 = `${r.found ? 'FOUND' : r.reason || '-'} ticks ${r.ticks ? r.ticks.length : 0} pitch ${r.pitch ? r.pitch.toFixed(1) : '-'} tilt ${r.base ? r.base.deg : '-'} scale ${r.scale ? r.scale.toFixed(2) : '-'}/${r.offset != null ? r.offset.toFixed(2) : '-'}`;
+  const line2 = `${r.found ? 'FOUND' : r.reason || '-'} ticks ${r.ticks ? r.ticks.length : 0} pitch ${r.pitch ? r.pitch.toFixed(1) : '-'} tilt ${r.base ? r.base.deg : '-'} scale ${r.scale ? r.scale.toFixed(2) : '-'}/${r.offset != null ? r.offset.toFixed(2) : '-'} glare ${r.glare != null ? (r.glare * 100).toFixed(1) + '%' : '-'} cut ${r.ticks ? r.ticks.filter(t => t.cut).length : 0}`;
   const line3 = `mis ${r.match ? r.match.mis : '-'} 2nd ${r.second ? r.second.mis : '-'} dir ${r.dir || '-'} read ${r.t != null ? r.t.toFixed(2) : '-'} cam ${cam.pos != null ? cam.pos.toFixed(2) : '-'} sound ${sp != null ? sp.toFixed(2) : '-'} vel ${rd ? rd.vel.toFixed(2) : '-'}${rd && rd.glide ? ' glide ' + rd.glide : ''}`;
   document.getElementById('dbg-live').innerHTML = line1 + '<br>' + line2 + '<br>' + line3;
   if (r.mask && geo) {

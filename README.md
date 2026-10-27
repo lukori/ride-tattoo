@@ -159,3 +159,23 @@ Synthetic test: 95/96 read, 0 wrong. (`make_skyline.py` now takes an optional ou
   new tattoo is printed only the default `LINE` in `js/scan.js` changes and the printed QR keeps working.
   `?line=` and `?mode=play|scrub` still override.
 - Start-screen tremble strength raised: amp = 1.1 + 1.0·swell px (was 0.6 + 0.9·swell), so it is never near straight.
+
+## Glare (reader v3, scan v17)
+
+A lamp reflected in the glossy tattoo shows up as blown-out white, on a forearm usually a long streak along the arm
+(the same direction as the line). The reader now treats glare as "unknown" instead of skin:
+
+- `glareMask`: pixels at or above `glare` (228, and at least 35 above the skin level) are glare, grown by 2 px.
+  The skin level is the median of the bright half of the frame (Otsu split), so a frame full of dark city is fine.
+- The ink mask compares each pixel only with the non-glare pixels around it, so skin next to glare is not "ink".
+- The water-line search ignores brightness steps that touch glare (the edge of a glare spot is not the water line).
+- A bar is followed through glare when ink carries on behind it. A bar that ends in glare, or ends where the skin is
+  `halo` (25) brighter than usual, is "cut": it only says "at least this long". Cut bars still mark their place,
+  are left out of the height fit, only contradict shorter bars on the line, and count 0.3 in the acceptance rule.
+- Hint "יש ברק על הקעקוע. הטה מעט את הטלפון" when glare covers more than 3% of the frame. Debug shows glare % and cut bars.
+
+Synthetic test (60 renders each, 18-38 px per bar, tilt ±8°, flips, blur, noise), right / wrong, before -> after:
+no glare 60/0 -> 60/0; round spots 53-60 -> 57-60, all 0 wrong; streak over the bars 1/0 -> 22/0;
+soft sheen over the bars 2/0 -> 26/0; streak over the water line 6/0 -> 10/0 (hard: the water line itself is hidden).
+`glare` 240 read the soft sheen better (28) but gave one wrong reading with the water line hidden, so 228.
+Anchor before this change: `checkpoint-ui-tyre-qr`.

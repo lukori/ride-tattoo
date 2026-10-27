@@ -192,3 +192,13 @@ Debug has a "Save frame" button: it downloads the exact strip the reader sees, s
 Synthetic test, right / wrong of 60, old rule -> new: worn tattoo (rubbed-off bits, specks) 45/0 -> 57/0;
 heavily worn 15/0 -> 45/0; worn + glare streak 13/0 -> 19/0; all other scenarios unchanged or better, 0 wrong.
 Anchor before this change: `checkpoint-glare-reader`.
+
+## Water line check (reader v5, scan v19)
+
+A real frame from the phone (tattoo under a clear protective film, arm edge against a light table in view) showed the
+reader taking the edge of the arm as the water line: a long straight edge, stronger than the real water line, whose
+contrast is low under the film and where bars hang below it. Now `findWater` returns up to `waterCands` (6) strong
+distinct edges and the reader keeps the one with the most bars hanging from it at a steady spacing. A faint edge
+(contrast below `edgeMin`, down to half of it) is accepted only with at least 6 steadily spaced bars.
+On that frame: before "few ticks" (water line on the arm edge); after FOUND, bar 39.5, and crops shifted left/right
+read 33.0 / 38.8 as expected. Synthetic test (50 each): all scenarios as before, 0 wrong.

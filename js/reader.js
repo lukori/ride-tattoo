@@ -135,6 +135,7 @@ const Reader = (() => {
   function findWater(gray, w, h, P, gl) {
     const step = 4, acc = new Float64Array(h), cnt = new Uint16Array(h);
     let best = { score: 0 };
+    const cands = [];                                    // strong edges at every angle, to be checked for bars
     // coarse pass every 3 degrees, then the neighbours of the best one
     const coarse = [];
     for (let deg = -P.maxTilt; deg <= P.maxTilt; deg += 3) coarse.push(deg);
@@ -153,13 +154,23 @@ const Reader = (() => {
       for (let yo = 3; yo < h - 3; yo++) {
         const s = Math.abs(acc[yo]);
         if (s > best.score) best = { score: s, y0: yo, tan, deg, side: acc[yo] > 0 ? 1 : -1, cnt: cnt[yo] };
+        if (s > 0 && s >= Math.abs(acc[yo - 1]) && s >= Math.abs(acc[yo + 1]) && s >= Math.abs(acc[yo - 2]) && s >= Math.abs(acc[yo + 2]))
+          cands.push({ score: s, y0: yo, tan, deg, side: acc[yo] > 0 ? 1 : -1, cnt: cnt[yo] });
       }
     };
     coarse.forEach(tryAngle);
     const c = best.deg;
     for (const d of [c - 2, c - 1, c + 1, c + 2]) if (Math.abs(d) <= P.maxTilt) tryAngle(d);
-    best.contrast = best.score / Math.max(best.cnt || 1, Math.ceil(w / step) * 0.4);   // average brightness step across the edge
-    return best;
+    // the strongest few distinct edges (another angle of the same edge does not count again)
+    const contrast = c => c.score / Math.max(c.cnt || 1, Math.ceil(w / step) * 0.4);   // average brightness step
+    cands.sort((a, b) => b.score - a.score);
+    const list = [];
+    for (const c of cands) {
+      if (c.score < best.score * 0.12 || list.length >= P.waterCands) break;
+      if (list.some(o => Math.abs(o.y0 - c.y0) < 10 && o.side === c.side)) continue;
+      c.contrast = contrast(c); list.push(c);
+    }
+    return list;
   }
 
   function measureBars(m, w, h, base, gl, gray, halo) {
@@ -225,10 +236,21 @@ const Reader = (() => {
     out.mask = m.ink;
     let ticks, baseThick, base;
     if (L.layout === 'reflection') {
-      base = findWater(gray, w, h, P, G.gl);
+      // the water line is the strong edge that has bars hanging from it at a steady spacing (the edge of the arm
+      // or of a plastic film can be stronger)
+      let bestN = -1;
+      for (const c of findWater(gray, w, h, P, G.gl)) {
+        if (c.contrast < P.edgeMin * 0.5) continue;
+        const r = measureBars(m, w, h, c, G.gl, gray, G.med + P.halo);
+        const tk = r.ticks, gaps = tk.slice(1).map((t, i) => t.x - tk[i].x), pg = median(gaps);
+        const steady = tk.length < 3 ? 0 : gaps.filter(d => Math.abs(d - pg) < pg * 0.3).length;
+        (out.tried = out.tried || []).push(`${c.y0}${c.side > 0 ? 'v' : '^'}${c.deg}:${c.contrast.toFixed(0)}/${steady}`);
+        // a faint edge only counts when a steady row of bars hangs from it
+        if (c.contrast < P.edgeMin && steady < 6) continue;
+        if (steady > bestN) { bestN = steady; base = c; ({ ticks, baseThick } = r); }
+      }
       out.base = base;
-      if (base.contrast < P.edgeMin) { out.reason = 'no line'; return out; }
-      ({ ticks, baseThick } = measureBars(m, w, h, base, G.gl, gray, G.med + P.halo));
+      if (!base) { out.reason = 'no line'; return out; }
     } else {
       base = findBase(m, w, h, P);
       out.base = base;

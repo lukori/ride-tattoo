@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500&family=Secular+One&display=swap" rel="stylesheet">
 <title>הדרך · סריקה</title>
 <style>
   :root { --paper: #f3efe7; --ink: #1b1a17; --head: #d4553c; --ok: #7fd18b; }
@@ -22,7 +22,9 @@
   footer button.on { background: var(--head); color: #fff; }
   #start { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
     gap: 16px; background: var(--paper); color: var(--ink); padding: 24px; text-align: center; z-index: 10; }
-  #start h1 { font-weight: 400; font-size: 22px; margin: 0; }
+  #start .titles { display: flex; flex-direction: column; align-items: center; }
+  #start .big { font-family: "Secular One", "Heebo", sans-serif; font-size: 66px; line-height: 1; }
+  #start h1 { font-weight: 400; font-size: 20px; margin: 4px 0 0; }
   #start p { margin: 0; color: #6d675c; max-width: 320px; line-height: 1.5; }
   #start button { font: inherit; font-size: 17px; padding: 14px 40px; border-radius: 12px; border: 0;
     background: var(--ink); color: var(--paper); }
@@ -45,13 +47,16 @@
   <button id="mode-glide">גרירה</button>
 </footer>
 <div id="start">
-  <h1>הדרך · סריקה</h1>
-  <p>כוון את הטלפון אל הקו המודפס, כך שהקו יעבור לאורך המסגרת. המקום שמתחת לקו האדום הוא המקום בדרך שמתנגן.</p>
+  <div class="titles">
+    <div class="big">הדרך</div>
+    <h1>מה שישאר אחרי</h1>
+  </div>
+  <p>כוון את הקו האדום לקעקוע ונגן את הדרך</p>
   <button id="go">התחל</button>
   <p id="err"></p>
 </div>
 <div id="debug" hidden></div>
 <script src="js/reader.js?v=2"></script>
-<script src="js/scan.js?v=13"></script>
+<script src="js/scan.js?v=14"></script>
 </body>
 </html>

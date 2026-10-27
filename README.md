@@ -145,3 +145,6 @@ Synthetic test: 95/96 read, 0 wrong. (`make_skyline.py` now takes an optional ou
   (`trail`, kept for the visit, gaps of up to 3 ticks filled); the rest is a 22% ghost of the tread. The red line is
   the sound, the white arrow the camera. (v12 had white loudness bars instead.)
 - Font: Heebo (Google Fonts), falling back to the system font.
+- The reading frame is marked by four white corners (v14; before: a full rectangle, green when locked).
+- Start screen (light): "הדרך" large in Secular One, subtitle "מה שישאר אחרי", the line
+  "כוון את הקו האדום לקעקוע ונגן את הדרך", then the start button.

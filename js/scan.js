@@ -397,8 +397,15 @@ function draw(now) {
   g.fillStyle = 'rgba(0,0,0,.4)';
   g.fillRect(0, 0, sw, by); g.fillRect(0, by + bh, sw, sh - by - bh);
   g.fillRect(0, by, bx, bh); g.fillRect(bx + bw, by, sw - bx - bw, bh);
-  g.strokeStyle = locked ? '#7fd18b' : 'rgba(243,239,231,.9)'; g.lineWidth = 2;
-  g.strokeRect(bx, by, bw, bh);
+  // four white corners mark the reading frame
+  const cl = Math.min(22, bw / 4, bh / 4);
+  g.strokeStyle = '#fff'; g.lineWidth = 2.5; g.lineCap = 'round';
+  g.beginPath();
+  for (const [x, y, dx, dy] of [[bx, by, 1, 1], [bx + bw, by, -1, 1], [bx, by + bh, 1, -1], [bx + bw, by + bh, -1, -1]]) {
+    g.moveTo(x + dx * cl, y); g.lineTo(x, y); g.lineTo(x, y + dy * cl);
+  }
+  g.stroke();
+  g.lineCap = 'butt';
   g.strokeStyle = '#d4553c'; g.lineWidth = 2;
   g.beginPath(); g.moveTo(bx + bw / 2, by - 10); g.lineTo(bx + bw / 2, by + bh + 10); g.stroke();
 
